@@ -1,3 +1,7 @@
+# @u1f992/optical-kerning
+
+Private fork for modern modularity.
+
 # optical-kerning.js
 
 *Optical Kerning jQuery Plugin*
