@@ -4,6 +4,14 @@ export type KerningOptions = {
 };
 
 class Analyzer {
+  prepareGap(
+    ch1: string,
+    ch2: string,
+    fontStyle: string,
+    fontWeight: string,
+    fontFamily: string,
+    options: Readonly<KerningOptions>,
+  ) {}
   dispose() {}
 }
 
@@ -33,6 +41,10 @@ const Node = Object.freeze({
 
 function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
+}
+
+function isText(node: Node): node is Text {
+  return node.nodeType === Node.TEXT_NODE;
 }
 
 function removeKerning(element: Element) {
@@ -70,20 +82,91 @@ function removeKerning(element: Element) {
   element.normalize();
 }
 
-function calcKerning(element: Element, options: KerningOptions) {}
+const excluded_tags = ["option", "script", "textarea"];
+
+function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
+  const code = ch.charCodeAt(0);
+  for (let i = 0; i < exclude.length; ++i) {
+    const ex = exclude[i];
+    if (Array.isArray(ex)) {
+      if (ex[0] <= code && code <= ex[1]) {
+        return true;
+      }
+    } else if (typeof ex === "string") {
+      for (var k = 0; k < ex.length; ++k) {
+        if (ex.charCodeAt(k) === code) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function calcKerning(
+  element: Element,
+  analyzer: Analyzer,
+  options: Readonly<KerningOptions>,
+) {
+  for (let node = element.firstChild; node !== null; node = node.nextSibling) {
+    if (isElement(node)) {
+      // @ts-ignore  node should be instanceof HTMLElement
+      if (!node.style || node.style.letterSpacing !== "") {
+        continue;
+      }
+      if (excluded_tags.indexOf(node.tagName.toLowerCase()) >= 0) {
+        continue;
+      }
+      calcKerning(node, analyzer, options);
+    } else if (isText(node)) {
+      const text = node.nodeValue;
+      const parentNode = node.parentNode;
+      if (
+        text === null ||
+        text.match(/^[\s\t\r\n]*$/) ||
+        parentNode === null ||
+        !isElement(parentNode)
+      ) {
+        continue;
+      }
+      const fontStyle = window.getComputedStyle(parentNode).fontStyle;
+      const fontWeight = window.getComputedStyle(parentNode).fontWeight;
+      const fontFamily = window.getComputedStyle(parentNode).fontFamily;
+      for (var i = 0; i < text.length - 1; ++i) {
+        if (
+          excluded(text[i]!, options.exclude) ||
+          excluded(text[i + 1]!, options.exclude)
+        ) {
+          continue;
+        }
+        analyzer.prepareGap(
+          text[i]!,
+          text[i + 1]!,
+          fontStyle,
+          fontWeight,
+          fontFamily,
+          options,
+        );
+      }
+    }
+  }
+}
 
 function applyKerning(element: Element, optiont: KerningOptions) {}
 
-export function kerning(element: Element, options: Partial<KerningOptions>) {
+export function kerning(
+  element: Element,
+  options: Partial<Readonly<KerningOptions>>,
+) {
   const mergedOptions = {
     ...{ factor: 0.5, exclude: [] },
     ...options,
-  };
+  } satisfies KerningOptions;
   const analyzer = new Analyzer();
   try {
     removeKerning(element);
     if (options.factor !== 0.0) {
-      calcKerning(element, mergedOptions);
+      calcKerning(element, analyzer, mergedOptions);
       applyKerning(element, mergedOptions);
     }
   } finally {
