@@ -14,10 +14,18 @@
   "author": "Takuya Nishida",
   "license": "MIT",
   "dependencies": {
-    "jquery": ">=1.0.0"
+    "canvas": "npm:@napi-rs/canvas@^0.1.71",
+    "jquery": ">=1.0.0",
+    "jsdom": "^26.1.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "jsdom": {
+      "canvas": "npm:@napi-rs/canvas@^0.1.71"
+    }
   }
 }
