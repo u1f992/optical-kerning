@@ -1,6 +1,7 @@
 export type KerningOptions = {
   factor: number;
   exclude: (string | [number, number])[];
+  locales?: Intl.LocalesArgument;
 };
 
 class Analyzer {
@@ -47,6 +48,15 @@ function isText(node: Node): node is Text {
   return node.nodeType === Node.TEXT_NODE;
 }
 
+function isHTMLElement(node: Node): node is HTMLElement {
+  // NOTE: it must be `node instanceof HTMLElement` but HTMLElement constructor is not globally provided under Node.js
+  return (
+    isElement(node) &&
+    // @ts-ignore
+    typeof node.style !== "undefined"
+  );
+}
+
 function removeKerning(element: Element) {
   let text = "";
   let toRemove: Node[] = [];
@@ -56,7 +66,7 @@ function removeKerning(element: Element) {
         document.createTextNode(text),
         toRemove[0]!,
       );
-      for (var k = 0; k < toRemove.length; ++k) {
+      for (let k = 0; k < toRemove.length; ++k) {
         node!.parentNode!.removeChild(toRemove[k]!);
       }
       toRemove.length = 0;
@@ -64,6 +74,7 @@ function removeKerning(element: Element) {
     }
   }
   let nextNode;
+  // FIXME: `var` statement
   for (var node = element.firstChild; node !== null; node = nextNode) {
     nextNode = node.nextSibling;
     if (isElement(node)) {
@@ -85,7 +96,10 @@ function removeKerning(element: Element) {
 const excluded_tags = ["option", "script", "textarea"];
 
 function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
-  const code = ch.charCodeAt(0);
+  const code = ch.codePointAt(0);
+  if (typeof code === "undefined") {
+    throw new Error('assertion failed: typeof code !== "undefined"');
+  }
   for (let i = 0; i < exclude.length; ++i) {
     const ex = exclude[i];
     if (Array.isArray(ex)) {
@@ -93,8 +107,8 @@ function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
         return true;
       }
     } else if (typeof ex === "string") {
-      for (var k = 0; k < ex.length; ++k) {
-        if (ex.charCodeAt(k) === code) {
+      for (let k = 0; k < ex.length; ++k) {
+        if (ex.codePointAt(k) === code) {
           return true;
         }
       }
@@ -109,8 +123,7 @@ function calcKerning(
   options: Readonly<KerningOptions>,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (isElement(node)) {
-      // @ts-ignore  node should be instanceof HTMLElement
+    if (isHTMLElement(node)) {
       if (!node.style || node.style.letterSpacing !== "") {
         continue;
       }
@@ -129,10 +142,15 @@ function calcKerning(
       ) {
         continue;
       }
-      const fontStyle = window.getComputedStyle(parentNode).fontStyle;
-      const fontWeight = window.getComputedStyle(parentNode).fontWeight;
-      const fontFamily = window.getComputedStyle(parentNode).fontFamily;
-      for (var i = 0; i < text.length - 1; ++i) {
+      const fontStyle = getComputedStyle(parentNode).fontStyle;
+      const fontWeight = getComputedStyle(parentNode).fontWeight;
+      const fontFamily = getComputedStyle(parentNode).fontFamily;
+
+      const segmenter = new Intl.Segmenter(options.locales, {
+        granularity: "grapheme",
+      });
+      const graphemes = [...segmenter.segment(text)];
+      for (let i = 0; i < graphemes.length - 1; ++i) {
         if (
           excluded(text[i]!, options.exclude) ||
           excluded(text[i + 1]!, options.exclude)
@@ -152,7 +170,7 @@ function calcKerning(
   }
 }
 
-function applyKerning(element: Element, optiont: KerningOptions) {}
+function applyKerning(element: Element, options: KerningOptions) {}
 
 export function kerning(
   element: Element,
