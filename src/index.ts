@@ -258,6 +258,19 @@ class Analyzer {
     this.#imageTop = 0;
     this.#analyzeFuncs.length = 0;
   }
+  getGap(
+    ch1: string,
+    ch2: string,
+    fontStyle: string,
+    fontWeight: string,
+    fontFamily: string,
+  ) {
+    if (this.#analyzeFuncs.length > 0) {
+      this.#analyzeAll();
+    }
+    // @ts-ignore
+    return this.#gapCache[fontStyle][fontWeight][fontFamily][ch1][ch2];
+  }
   dispose() {}
 }
 
@@ -387,7 +400,64 @@ function calcKerning(
   }
 }
 
-function applyKerning(element: Element, options: KerningOptions) {}
+function applyKerning(
+  element: Element,
+  analyzer: Analyzer,
+  { window, exclude }: Pick<Readonly<KerningOptions>, "window" | "exclude">,
+) {
+  var nextNode;
+  for (var node = element.firstChild; node !== null; node = nextNode) {
+    nextNode = node.nextSibling;
+    if (isHTMLElement(node, window)) {
+      if (node.style.letterSpacing !== "") {
+        continue;
+      }
+      if (excluded_tags.indexOf(node.tagName.toLowerCase()) >= 0) {
+        continue;
+      }
+      applyKerning(node, analyzer, { window, exclude });
+    } else if (isText(node, window)) {
+      const text = node.nodeValue;
+      const parentNode = node.parentNode;
+      if (
+        text === null ||
+        text.match(/^[\s\t\r\n]*$/) ||
+        parentNode === null ||
+        !isElement(parentNode, window)
+      ) {
+        continue;
+      }
+      var fontStyle = window.getComputedStyle(parentNode).fontStyle;
+      var fontWeight = window.getComputedStyle(parentNode).fontWeight;
+      var fontFamily = window.getComputedStyle(parentNode).fontFamily;
+      var spans = window.document.createDocumentFragment();
+      for (var i = 0; i < text.length - 1; ++i) {
+        if (excluded(text[i]!, exclude) || excluded(text[i + 1]!, exclude)) {
+          var textNode = window.document.createTextNode(text[i]!);
+          spans.appendChild(textNode);
+          continue;
+        }
+        var gap = analyzer.getGap(
+          text[i]!,
+          text[i + 1]!,
+          fontStyle,
+          fontWeight,
+          fontFamily,
+        );
+        var span = window.document.createElement("span");
+        span.setAttribute("class", "optical-kerning-applied");
+        span.setAttribute("style", "letter-spacing: " + -gap + "em");
+        span.textContent = text[i]!;
+        spans.appendChild(span);
+      }
+      var textNode = window.document.createTextNode(text[text.length - 1]!);
+      spans.appendChild(textNode);
+      spans.normalize();
+      parentNode.insertBefore(spans, node);
+      parentNode.removeChild(node);
+    }
+  }
+}
 
 export function kerning(
   element: Element,
@@ -402,7 +472,7 @@ export function kerning(
     removeKerning(element, mergedOptions);
     if (options.factor !== 0.0) {
       calcKerning(element, analyzer, mergedOptions);
-      applyKerning(element, mergedOptions);
+      applyKerning(element, analyzer, mergedOptions);
     }
   } finally {
     analyzer.dispose();
