@@ -80,6 +80,7 @@ function convexHull(
 }
 
 class Analyzer {
+  #window;
   #height;
   #width;
   #margin;
@@ -92,6 +93,7 @@ class Analyzer {
   #imageTop;
   #analyzeFuncs: (() => void)[];
   constructor({ window }: KerningOptions) {
+    this.#window = window;
     this.#height = 32;
     this.#width = 128;
     this.#margin = 16;
@@ -271,7 +273,9 @@ class Analyzer {
     // @ts-ignore
     return this.#gapCache[fontStyle][fontWeight][fontFamily][ch1][ch2];
   }
-  dispose() {}
+  dispose() {
+    this.#window.document.body.removeChild(this.#canvas);
+  }
 }
 
 function isElement(node: Node, window: MockGlobal): node is Element {
