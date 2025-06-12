@@ -1,7 +1,13 @@
+type MockGlobal = Pick<
+  Window & typeof globalThis,
+  "getComputedStyle" | "HTMLElement" | "Node"
+>;
+
 export type KerningOptions = {
   factor: number;
   exclude: (string | [number, number])[];
   locales?: Intl.LocalesArgument;
+  window: MockGlobal;
 };
 
 class Analyzer {
@@ -16,48 +22,19 @@ class Analyzer {
   dispose() {}
 }
 
-const Node = Object.freeze({
-  ELEMENT_NODE: 1,
-  ATTRIBUTE_NODE: 2,
-  TEXT_NODE: 3,
-  CDATA_SECTION_NODE: 4,
-  /**
-   * @deprecated
-   */
-  ENTITY_REFERENCE_NODE: 5,
-  /**
-   * @deprecated
-   */
-  ENTITY_NODE: 6,
-  PROCESSING_INSTRUCTION_NODE: 7,
-  COMMENT_NODE: 8,
-  DOCUMENT_NODE: 9,
-  DOCUMENT_TYPE_NODE: 10,
-  DOCUMENT_FRAGMENT_NODE: 11,
-  /**
-   * @deprecated
-   */
-  NOTATION_NODE: 12,
-});
-
-function isElement(node: Node): node is Element {
-  return node.nodeType === Node.ELEMENT_NODE;
+function isElement(node: Node, window: MockGlobal): node is Element {
+  return node.nodeType === window.Node.ELEMENT_NODE;
 }
 
-function isText(node: Node): node is Text {
-  return node.nodeType === Node.TEXT_NODE;
+function isText(node: Node, window: MockGlobal): node is Text {
+  return node.nodeType === window.Node.TEXT_NODE;
 }
 
-function isHTMLElement(node: Node): node is HTMLElement {
-  // NOTE: it must be `node instanceof HTMLElement` but HTMLElement constructor is not globally provided under Node.js
-  return (
-    isElement(node) &&
-    // @ts-ignore
-    typeof node.style !== "undefined"
-  );
+function isHTMLElement(node: Node, window: MockGlobal): node is HTMLElement {
+  return node instanceof window.HTMLElement;
 }
 
-function removeKerning(element: Element) {
+function removeKerning(element: Element, options: Readonly<KerningOptions>) {
   let text = "";
   let toRemove: Node[] = [];
   function replace() {
@@ -77,13 +54,13 @@ function removeKerning(element: Element) {
   // FIXME: `var` statement
   for (var node = element.firstChild; node !== null; node = nextNode) {
     nextNode = node.nextSibling;
-    if (isElement(node)) {
+    if (isElement(node, options.window)) {
       if (node.className === "optical-kerning-applied") {
         text += node.textContent;
         toRemove.push(node);
       } else {
         replace();
-        removeKerning(node);
+        removeKerning(node, options);
       }
     } else {
       replace();
@@ -123,28 +100,28 @@ function calcKerning(
   options: Readonly<KerningOptions>,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (isHTMLElement(node)) {
-      if (!node.style || node.style.letterSpacing !== "") {
-        continue;
-      }
-      if (excluded_tags.indexOf(node.tagName.toLowerCase()) >= 0) {
+    if (isHTMLElement(node, options.window)) {
+      if (
+        node.style.letterSpacing !== "" ||
+        excluded_tags.includes(node.tagName.toLowerCase())
+      ) {
         continue;
       }
       calcKerning(node, analyzer, options);
-    } else if (isText(node)) {
+    } else if (isText(node, options.window)) {
       const text = node.nodeValue;
       const parentNode = node.parentNode;
       if (
         text === null ||
         text.match(/^[\s\t\r\n]*$/) ||
         parentNode === null ||
-        !isElement(parentNode)
+        !isElement(parentNode, options.window)
       ) {
         continue;
       }
-      const fontStyle = getComputedStyle(parentNode).fontStyle;
-      const fontWeight = getComputedStyle(parentNode).fontWeight;
-      const fontFamily = getComputedStyle(parentNode).fontFamily;
+      const fontStyle = options.window.getComputedStyle(parentNode).fontStyle;
+      const fontWeight = options.window.getComputedStyle(parentNode).fontWeight;
+      const fontFamily = options.window.getComputedStyle(parentNode).fontFamily;
 
       const segmenter = new Intl.Segmenter(options.locales, {
         granularity: "grapheme",
@@ -177,12 +154,12 @@ export function kerning(
   options: Partial<Readonly<KerningOptions>>,
 ) {
   const mergedOptions = {
-    ...{ factor: 0.5, exclude: [] },
+    ...{ factor: 0.5, exclude: [], locales: undefined, window },
     ...options,
   } satisfies KerningOptions;
   const analyzer = new Analyzer();
   try {
-    removeKerning(element);
+    removeKerning(element, mergedOptions);
     if (options.factor !== 0.0) {
       calcKerning(element, analyzer, mergedOptions);
       applyKerning(element, mergedOptions);
