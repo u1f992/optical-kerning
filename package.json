@@ -1,18 +1,23 @@
 {
-	"name": "optical-kerning",
-	"version": "1.0.1",
-	"description": "Optical Kerning jQuery Plugin",
-	"main": "optical-kerning.js",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/data9824/optical-kerning.git"
-	},
-	"keywords": [
-		"jquery-plugin"
-	],
-	"author": "Takuya Nishida",
-	"license": "MIT",
-	"dependencies": {
-		"jquery": ">=1.0.0"
-	}
+  "name": "optical-kerning",
+  "version": "1.0.1",
+  "description": "Optical Kerning jQuery Plugin",
+  "main": "dist/index.js",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/u1f992/optical-kerning.git"
+  },
+  "keywords": [
+    "jquery-plugin"
+  ],
+  "author": "Takuya Nishida",
+  "license": "MIT",
+  "dependencies": {
+    "jquery": ">=1.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
 }
