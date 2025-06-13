@@ -1,3 +1,5 @@
+import type { Node, Element, Text, HTMLElement } from "./dom.js";
+
 const Node = Object.freeze({
   ELEMENT_NODE: 1,
   ATTRIBUTE_NODE: 2,
@@ -20,7 +22,21 @@ const Node = Object.freeze({
    * @deprecated
    */
   NOTATION_NODE: 12,
-});
+}) satisfies Pick<
+  Node,
+  | "ELEMENT_NODE"
+  | "ATTRIBUTE_NODE"
+  | "TEXT_NODE"
+  | "CDATA_SECTION_NODE"
+  | "ENTITY_REFERENCE_NODE"
+  | "ENTITY_NODE"
+  | "PROCESSING_INSTRUCTION_NODE"
+  | "COMMENT_NODE"
+  | "DOCUMENT_NODE"
+  | "DOCUMENT_TYPE_NODE"
+  | "DOCUMENT_FRAGMENT_NODE"
+  | "NOTATION_NODE"
+>;
 
 export function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
@@ -30,11 +46,11 @@ export function isText(node: Node): node is Text {
   return node.nodeType === Node.TEXT_NODE;
 }
 
-export function isHTMLElement(
-  node: Node,
-  {
-    HTMLElement: HTMLElementCtor,
-  }: Pick<Window & typeof globalThis, "HTMLElement">,
-): node is HTMLElement {
-  return node instanceof HTMLElementCtor;
+export function isHTMLElement(node: Node): node is HTMLElement {
+  // FIXME
+  return (
+    isElement(node) &&
+    // @ts-ignore
+    typeof node.style !== "undefined"
+  );
 }

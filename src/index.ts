@@ -1,31 +1,29 @@
 import { Analyzer } from "./analyzer.js";
+import type { Window, Node, Element } from "./dom.js";
 import { isElement, isText, isHTMLElement } from "./html.js";
 import { pairwise } from "./util.js";
-
-type MockGlobal = Pick<
-  Window & typeof globalThis,
-  "getComputedStyle" | "HTMLElement" | "Node" | "document"
->;
 
 export type KerningOptions = {
   factor: number;
   exclude: readonly (string | [number, number])[];
   locales?: Intl.LocalesArgument;
-  window: MockGlobal;
 };
+
+type WindowFunctions = Pick<Window, "getComputedStyle"> &
+  Pick<
+    Window["document"],
+    "createTextNode" | "createDocumentFragment" | "createElement"
+  >;
 
 function removeKerning(
   element: Element,
-  { window }: Pick<Readonly<KerningOptions>, "window">,
+  { createTextNode }: Pick<WindowFunctions, "createTextNode">,
 ) {
   let text = "";
   let toRemove: Node[] = [];
   function replace() {
     if (toRemove.length > 0) {
-      node!.parentNode!.insertBefore(
-        window.document.createTextNode(text),
-        toRemove[0]!,
-      );
+      node!.parentNode!.insertBefore(createTextNode(text), toRemove[0]!);
       for (let k = 0; k < toRemove.length; ++k) {
         node!.parentNode!.removeChild(toRemove[k]!);
       }
@@ -43,7 +41,7 @@ function removeKerning(
         toRemove.push(node);
       } else {
         replace();
-        removeKerning(node, { window });
+        removeKerning(node, { createTextNode });
       }
     } else {
       replace();
@@ -79,16 +77,21 @@ function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
 
 function calcKerning(
   element: Element,
+  { getComputedStyle }: Pick<WindowFunctions, "getComputedStyle">,
   analyzer: Analyzer,
-  { factor, exclude, locales, window }: Readonly<KerningOptions>,
+  { factor, exclude, locales }: Readonly<KerningOptions>,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
     if (
-      isHTMLElement(node, window) &&
+      isHTMLElement(node) &&
       node.style.letterSpacing === "" &&
       !excluded_tags.includes(node.tagName.toLowerCase())
     ) {
-      calcKerning(node, analyzer, { factor, exclude, locales, window });
+      calcKerning(node, { getComputedStyle }, analyzer, {
+        factor,
+        exclude,
+        locales,
+      });
     } else if (isText(node)) {
       const text = node.nodeValue;
       const parentNode = node.parentNode;
@@ -101,7 +104,7 @@ function calcKerning(
         continue;
       }
 
-      const computedStyle = window.getComputedStyle(parentNode);
+      const computedStyle = getComputedStyle(parentNode);
       for (const [g0, g1] of pairwise([
         ...new Intl.Segmenter(locales, {
           granularity: "grapheme",
@@ -120,20 +123,38 @@ function calcKerning(
 
 function applyKerning(
   element: Element,
-  analyzer: Analyzer,
   {
-    window,
-    exclude,
-    locales,
-  }: Pick<Readonly<KerningOptions>, "window" | "exclude" | "locales">,
+    getComputedStyle,
+    createDocumentFragment,
+    createTextNode,
+    createElement,
+  }: Pick<
+    WindowFunctions,
+    | "getComputedStyle"
+    | "createDocumentFragment"
+    | "createTextNode"
+    | "createElement"
+  >,
+  analyzer: Analyzer,
+  { exclude, locales }: Pick<Readonly<KerningOptions>, "exclude" | "locales">,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
     if (
-      isHTMLElement(node, window) &&
+      isHTMLElement(node) &&
       node.style.letterSpacing === "" &&
       !excluded_tags.includes(node.tagName.toLowerCase())
     ) {
-      applyKerning(node, analyzer, { window, exclude });
+      applyKerning(
+        node,
+        {
+          getComputedStyle,
+          createDocumentFragment,
+          createTextNode,
+          createElement,
+        },
+        analyzer,
+        { exclude, locales },
+      );
     } else if (isText(node)) {
       const text = node.nodeValue;
       const parentNode = node.parentNode;
@@ -146,8 +167,8 @@ function applyKerning(
         continue;
       }
 
-      const computedStyle = window.getComputedStyle(parentNode);
-      const spans = window.document.createDocumentFragment();
+      const computedStyle = getComputedStyle(parentNode);
+      const spans = createDocumentFragment();
       const graphemes = [
         ...new Intl.Segmenter(locales, {
           granularity: "grapheme",
@@ -157,12 +178,12 @@ function applyKerning(
         const seg0 = g0.segment ?? "";
         const seg1 = g1.segment ?? "";
         if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
-          const textNode = window.document.createTextNode(seg0);
+          const textNode = createTextNode(seg0);
           spans.appendChild(textNode);
           continue;
         }
         const gap = analyzer.getGap(seg0, seg1, computedStyle);
-        const span = window.document.createElement("span");
+        const span = createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
         span.setAttribute("style", "letter-spacing: " + -gap + "em");
         span.textContent = seg0;
@@ -170,7 +191,7 @@ function applyKerning(
       }
       const lastGrapheme = graphemes.at(-1);
       if (lastGrapheme && typeof lastGrapheme.segment !== "undefined") {
-        const textNode = window.document.createTextNode(lastGrapheme.segment);
+        const textNode = createTextNode(lastGrapheme.segment);
         spans.appendChild(textNode);
       }
       spans.normalize();
@@ -185,13 +206,25 @@ export function kerning(
   options: Partial<Readonly<KerningOptions>>,
 ) {
   const mergedOptions = {
-    ...{ factor: 0.5, exclude: [], locales: undefined, window },
+    ...{ factor: 0.5, exclude: [], locales: undefined },
     ...options,
   } satisfies KerningOptions;
-  const analyzer = new Analyzer(mergedOptions.window);
-  removeKerning(element, mergedOptions);
+  const window = element.ownerDocument.defaultView;
+  if (!window) {
+    throw new Error("runtime assertion failed: window !== null");
+  }
+  const windowFn = {
+    getComputedStyle: window.getComputedStyle.bind(window),
+    createTextNode: window.document.createTextNode.bind(window.document),
+    createDocumentFragment: window.document.createDocumentFragment.bind(
+      window.document,
+    ),
+    createElement: window.document.createElement.bind(window.document),
+  } satisfies WindowFunctions;
+  const analyzer = new Analyzer(window);
+  removeKerning(element, windowFn);
   if (options.factor !== 0.0) {
-    calcKerning(element, analyzer, mergedOptions);
-    applyKerning(element, analyzer, mergedOptions);
+    calcKerning(element, windowFn, analyzer, mergedOptions);
+    applyKerning(element, windowFn, analyzer, mergedOptions);
   }
 }

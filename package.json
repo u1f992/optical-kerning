@@ -20,11 +20,10 @@
   "license": "MIT",
   "dependencies": {
     "canvas": "npm:@napi-rs/canvas@^0.1.71",
-    "jquery": ">=1.0.0",
-    "jsdom": "^26.1.0"
+    "jquery": ">=1.0.0"
   },
   "devDependencies": {
-    "@types/jsdom": "^21.1.7",
+    "@types/node": "^24.0.1",
     "http-server": "^14.1.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"

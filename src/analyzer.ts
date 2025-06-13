@@ -1,3 +1,5 @@
+import type { Window, CSSStyleDeclaration, ImageData } from "./dom.js";
+
 type FontStyle = Pick<
   CSSStyleDeclaration,
   "fontFamily" | "fontStyle" | "fontWeight"
