@@ -3,22 +3,47 @@ type FontStyle = Pick<
   "fontFamily" | "fontStyle" | "fontWeight"
 >;
 
-function constructHash<
-  T extends Record<PropertyKey, any>,
-  K extends PropertyKey[],
-  V,
->(obj: T, ...args: [...K, V]): any {
-  let hash: any = obj;
-  for (let i = 0; i < args.length - 2; ++i) {
-    const key = args[i];
-    if (hash[key] === undefined) {
-      hash[key] = {};
-    }
-    hash = hash[key];
+type Cache<V> = Record<
+  string, // fontStyle
+  Record<
+    string, // fontWeight
+    Record<
+      string, // fontFamily
+      Record<
+        string, // ch1
+        Record<
+          string, // ch2
+          V
+        >
+      >
+    >
+  >
+>;
+
+function constructHash<T>(
+  cache: Cache<T>,
+  fontStyle: string,
+  fontWeight: string,
+  fontFamily: string,
+  ch1: string,
+  ch2: string,
+  value: T,
+) {
+  if (cache[fontStyle] === undefined) {
+    cache[fontStyle] = {};
   }
-  const lastKey = args[args.length - 2];
-  const old = hash[lastKey];
-  hash[lastKey] = args[args.length - 1];
+  if (cache[fontStyle][fontWeight] === undefined) {
+    cache[fontStyle][fontWeight] = {};
+  }
+  if (cache[fontStyle][fontWeight][fontFamily] === undefined) {
+    cache[fontStyle][fontWeight][fontFamily] = {};
+  }
+  if (cache[fontStyle][fontWeight][fontFamily][ch1] === undefined) {
+    cache[fontStyle][fontWeight][fontFamily][ch1] = {};
+  }
+  const subObj = cache[fontStyle][fontWeight][fontFamily][ch1];
+  const old = subObj[ch2];
+  subObj[ch2] = value;
   return old;
 }
 
@@ -77,7 +102,7 @@ function createAnalyzeFn(
   height: number,
   width: number,
   margin: number,
-  gapCache: {},
+  gapCache: Cache<number>,
   top: number,
   center: number,
   { fontStyle, fontWeight, fontFamily }: FontStyle,
@@ -166,8 +191,8 @@ export class Analyzer {
   #width;
   #margin;
   #tiles;
-  #preparedCache;
-  #gapCache;
+  #preparedCache: Cache<boolean>;
+  #gapCache: Cache<number>;
   #canvas;
   #context;
   #image: ImageData | null;
@@ -270,8 +295,12 @@ export class Analyzer {
     if (this.#analyzeFuncs.length > 0) {
       this.#analyzeAll();
     }
-    // @ts-ignore
-    return this.#gapCache[fontStyle][fontWeight][fontFamily][ch1][ch2];
+    const ret =
+      this.#gapCache[fontStyle]?.[fontWeight]?.[fontFamily]?.[ch1]?.[ch2];
+    if (typeof ret === "undefined") {
+      throw new Error('runtime assertion failed: type of ret !== "undefined"');
+    }
+    return ret;
   }
   dispose() {
     this.#window.document.body.removeChild(this.#canvas);
