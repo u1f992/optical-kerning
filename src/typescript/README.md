@@ -2,7 +2,7 @@
 
 ```diff
 --- node_modules/typescript/lib/lib.dom.d.ts	2025-06-13 12:27:33.212607815 +0900
-+++ src/typescript/lib/lib.dom.ts	2025-06-13 16:00:12.797553936 +0900
++++ src/typescript/lib/lib.dom.ts	2025-06-13 16:25:48.205705332 +0900
 @@ -14,7 +14,7 @@
  ***************************************************************************** */
 
@@ -30,6 +30,15 @@
      /** [MDN Reference](https://developer.mozilla.org/docs/Web/API/Element/attributes) */
      readonly attributes: NamedNodeMap;
      /**
+@@ -10439,7 +10439,7 @@
+  *
+  * [MDN Reference](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement)
+  */
+-interface HTMLCanvasElement extends HTMLElement {
++export interface HTMLCanvasElement extends HTMLElement {
+     /**
+      * Gets or sets the height of a canvas element on a document.
+      *
 @@ -10699,7 +10699,7 @@
   *
   * [MDN Reference](https://developer.mozilla.org/docs/Web/API/HTMLElement)

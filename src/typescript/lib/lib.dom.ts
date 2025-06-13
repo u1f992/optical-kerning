@@ -10439,7 +10439,7 @@ declare var HTMLButtonElement: {
  *
  * [MDN Reference](https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement)
  */
-interface HTMLCanvasElement extends HTMLElement {
+export interface HTMLCanvasElement extends HTMLElement {
     /**
      * Gets or sets the height of a canvas element on a document.
      *

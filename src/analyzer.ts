@@ -1,4 +1,8 @@
-import type { Window, CSSStyleDeclaration, ImageData } from "./dom.js";
+import type {
+  HTMLCanvasElement,
+  CSSStyleDeclaration,
+  ImageData,
+} from "./dom.js";
 
 type FontStyle = Pick<
   CSSStyleDeclaration,
@@ -183,29 +187,25 @@ function createAnalyzeFn(
   };
 }
 
+const CANVAS_HEIGHT = 32;
+const CANVAS_WIDTH = 128;
+const CANVAS_TILES = 64;
+const ANALYZER_MARGIN = 16;
+
 export class Analyzer {
-  #height;
-  #width;
-  #margin;
-  #tiles;
   #preparedCache: Cache<boolean>;
   #gapCache: Cache<number>;
-  #canvas;
   #context;
   #imageTop;
   #analyzeFuncs: ((image: ImageData) => void)[];
-  constructor(window: Pick<Window, "document">) {
-    this.#height = 32;
-    this.#width = 128;
-    this.#margin = 16;
-    this.#tiles = 64;
+  constructor(canvasConstructor: () => HTMLCanvasElement) {
     this.#preparedCache = {};
     this.#gapCache = {};
-    this.#canvas = window.document.createElement("canvas");
-    this.#canvas.width = this.#width;
-    this.#canvas.height = this.#height * 2 * this.#tiles;
-    this.#canvas.style.display = "none";
-    this.#context = this.#canvas.getContext("2d")!;
+    const canvas = canvasConstructor();
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT * 2 * CANVAS_TILES;
+    canvas.style.display = "none";
+    this.#context = canvas.getContext("2d", { willReadFrequently: true })!;
     this.#context.fillStyle = "#000000";
     this.#context.textBaseline = "middle";
     this.#imageTop = 0;
@@ -234,27 +234,27 @@ export class Analyzer {
       this.#context.clearRect(
         0,
         0,
-        this.#width,
-        this.#height * 2 * this.#tiles,
+        CANVAS_WIDTH,
+        CANVAS_HEIGHT * 2 * CANVAS_TILES,
       );
     }
     this.#context.font =
-      fontStyle + " " + fontWeight + " " + this.#height + "px " + fontFamily;
+      fontStyle + " " + fontWeight + " " + CANVAS_HEIGHT + "px " + fontFamily;
     const ch1Width = this.#context.measureText(ch1).width;
-    this.#context.fillText(ch1, 0, this.#imageTop + this.#height);
-    const center = Math.ceil(ch1Width) + this.#margin;
+    this.#context.fillText(ch1, 0, this.#imageTop + CANVAS_HEIGHT);
+    const center = Math.ceil(ch1Width) + ANALYZER_MARGIN;
     this.#context.fillText(
       ch2,
-      center + this.#margin,
-      this.#imageTop + this.#height,
+      center + ANALYZER_MARGIN,
+      this.#imageTop + CANVAS_HEIGHT,
     );
     const top = this.#imageTop;
-    this.#imageTop += this.#height * 2;
+    this.#imageTop += CANVAS_HEIGHT * 2;
     this.#analyzeFuncs.push(
       createAnalyzeFn(
-        this.#height,
-        this.#width,
-        this.#margin,
+        CANVAS_HEIGHT,
+        CANVAS_WIDTH,
+        ANALYZER_MARGIN,
         this.#gapCache,
         top,
         center,
@@ -264,7 +264,7 @@ export class Analyzer {
         factor,
       ),
     );
-    if (this.#analyzeFuncs.length === this.#tiles) {
+    if (this.#analyzeFuncs.length === CANVAS_TILES) {
       this.#analyzeAll();
     }
   }
@@ -272,8 +272,8 @@ export class Analyzer {
     const image = this.#context.getImageData(
       0,
       0,
-      this.#width,
-      this.#height * 2 * this.#tiles,
+      CANVAS_WIDTH,
+      CANVAS_HEIGHT * 2 * CANVAS_TILES,
     );
     this.#analyzeFuncs.forEach((fn) => fn(image));
     this.#imageTop = 0;

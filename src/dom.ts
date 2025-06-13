@@ -4,6 +4,7 @@ import type {
   Element,
   Text,
   HTMLElement,
+  HTMLCanvasElement,
   CSSStyleDeclaration,
   ImageData,
 } from "./typescript/lib/lib.dom.js";
@@ -13,6 +14,7 @@ export type {
   Element,
   Text,
   HTMLElement,
+  HTMLCanvasElement,
   CSSStyleDeclaration,
   ImageData,
 };

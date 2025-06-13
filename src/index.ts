@@ -1,5 +1,5 @@
 import { Analyzer } from "./analyzer.js";
-import type { Window, Node, Element } from "./dom.js";
+import type { Window, Node, Element, HTMLCanvasElement } from "./dom.js";
 import { isElement, isText, isHTMLElement } from "./html.js";
 import { pairwise } from "./util.js";
 
@@ -221,7 +221,12 @@ export function kerning(
     ),
     createElement: window.document.createElement.bind(window.document),
   } satisfies WindowFunctions;
-  const analyzer = new Analyzer(window);
+  const analyzer = new Analyzer(
+    window.document.createElement.bind(
+      window.document,
+      "canvas",
+    ) as () => HTMLCanvasElement,
+  );
   removeKerning(element, windowFn);
   if (options.factor !== 0.0) {
     calcKerning(element, windowFn, analyzer, mergedOptions);
