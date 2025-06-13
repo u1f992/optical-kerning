@@ -1,5 +1,6 @@
 import { Analyzer } from "./analyzer.js";
 import { isElement, isText, isHTMLElement } from "./html.js";
+import { pairwise } from "./util.js";
 
 type MockGlobal = Pick<
   Window & typeof globalThis,
@@ -101,14 +102,13 @@ function calcKerning(
       }
 
       const computedStyle = window.getComputedStyle(parentNode);
-      const graphemes = [
+      for (const [g0, g1] of pairwise([
         ...new Intl.Segmenter(locales, {
           granularity: "grapheme",
         }).segment(text),
-      ];
-      for (let i = 0; i < graphemes.length - 1; ++i) {
-        const seg0 = graphemes[i]?.segment ?? "";
-        const seg1 = graphemes[i + 1]?.segment ?? "";
+      ])) {
+        const seg0 = g0.segment ?? "";
+        const seg1 = g1.segment ?? "";
         if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
           continue;
         }
@@ -153,9 +153,9 @@ function applyKerning(
           granularity: "grapheme",
         }).segment(text),
       ];
-      for (let i = 0; i < graphemes.length - 1; ++i) {
-        const seg0 = graphemes[i]?.segment ?? "";
-        const seg1 = graphemes[i + 1]?.segment ?? "";
+      for (const [g0, g1] of pairwise(graphemes)) {
+        const seg0 = g0.segment ?? "";
+        const seg1 = g1.segment ?? "";
         if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
           const textNode = window.document.createTextNode(seg0);
           spans.appendChild(textNode);

@@ -11,6 +11,10 @@
   "keywords": [
     "jquery-plugin"
   ],
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test"
+  },
   "author": "Takuya Nishida",
   "license": "MIT",
   "dependencies": {
