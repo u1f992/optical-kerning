@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --test",
+    "serve": "npm run build && http-server ."
   },
   "author": "Takuya Nishida",
   "license": "MIT",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
+    "http-server": "^14.1.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   },

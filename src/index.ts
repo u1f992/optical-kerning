@@ -189,13 +189,9 @@ export function kerning(
     ...options,
   } satisfies KerningOptions;
   const analyzer = new Analyzer(mergedOptions.window);
-  try {
-    removeKerning(element, mergedOptions);
-    if (options.factor !== 0.0) {
-      calcKerning(element, analyzer, mergedOptions);
-      applyKerning(element, analyzer, mergedOptions);
-    }
-  } finally {
-    analyzer.dispose();
+  removeKerning(element, mergedOptions);
+  if (options.factor !== 0.0) {
+    calcKerning(element, analyzer, mergedOptions);
+    applyKerning(element, analyzer, mergedOptions);
   }
 }

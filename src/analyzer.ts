@@ -98,7 +98,6 @@ function convexHull(
 }
 
 function createAnalyzeFn(
-  image: ImageData | null,
   height: number,
   width: number,
   margin: number,
@@ -110,10 +109,7 @@ function createAnalyzeFn(
   ch2: string,
   factor: number,
 ) {
-  return () => {
-    if (image === null) {
-      throw new Error("runtime assertion failed: image !== null");
-    }
+  return (image: ImageData) => {
     let vertices = convexHull(image, 0, top, center, height * 2, true);
     const leftBorders = new Array(height * 2);
     if (vertices.length > 0) {
@@ -186,7 +182,6 @@ function createAnalyzeFn(
 }
 
 export class Analyzer {
-  #window;
   #height;
   #width;
   #margin;
@@ -195,11 +190,9 @@ export class Analyzer {
   #gapCache: Cache<number>;
   #canvas;
   #context;
-  #image: ImageData | null;
   #imageTop;
-  #analyzeFuncs: (() => void)[];
+  #analyzeFuncs: ((image: ImageData) => void)[];
   constructor(window: Pick<Window, "document">) {
-    this.#window = window;
     this.#height = 32;
     this.#width = 128;
     this.#margin = 16;
@@ -213,7 +206,6 @@ export class Analyzer {
     this.#context = this.#canvas.getContext("2d")!;
     this.#context.fillStyle = "#000000";
     this.#context.textBaseline = "middle";
-    this.#image = null;
     this.#imageTop = 0;
     this.#analyzeFuncs = [];
   }
@@ -258,7 +250,6 @@ export class Analyzer {
     this.#imageTop += this.#height * 2;
     this.#analyzeFuncs.push(
       createAnalyzeFn(
-        this.#image,
         this.#height,
         this.#width,
         this.#margin,
@@ -276,14 +267,13 @@ export class Analyzer {
     }
   }
   #analyzeAll() {
-    this.#image = this.#context.getImageData(
+    const image = this.#context.getImageData(
       0,
       0,
       this.#width,
       this.#height * 2 * this.#tiles,
     );
-    this.#analyzeFuncs.forEach((fn) => fn());
-    this.#image = null;
+    this.#analyzeFuncs.forEach((fn) => fn(image));
     this.#imageTop = 0;
     this.#analyzeFuncs.length = 0;
   }
@@ -301,8 +291,5 @@ export class Analyzer {
       throw new Error('runtime assertion failed: type of ret !== "undefined"');
     }
     return ret;
-  }
-  dispose() {
-    this.#window.document.body.removeChild(this.#canvas);
   }
 }
