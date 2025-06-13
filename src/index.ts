@@ -100,9 +100,7 @@ function calcKerning(
         continue;
       }
 
-      const { fontStyle, fontWeight, fontFamily } =
-        window.getComputedStyle(parentNode);
-
+      const computedStyle = window.getComputedStyle(parentNode);
       const graphemes = [
         ...new Intl.Segmenter(locales, {
           granularity: "grapheme",
@@ -114,14 +112,7 @@ function calcKerning(
         if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
           continue;
         }
-        analyzer.prepareGap(
-          seg0,
-          seg1,
-          fontStyle,
-          fontWeight,
-          fontFamily,
-          factor,
-        );
+        analyzer.prepareGap(seg0, seg1, computedStyle, factor);
       }
     }
   }
@@ -155,9 +146,7 @@ function applyKerning(
         continue;
       }
 
-      const { fontStyle, fontWeight, fontFamily } =
-        window.getComputedStyle(parentNode);
-
+      const computedStyle = window.getComputedStyle(parentNode);
       const spans = window.document.createDocumentFragment();
       const graphemes = [
         ...new Intl.Segmenter(locales, {
@@ -172,13 +161,7 @@ function applyKerning(
           spans.appendChild(textNode);
           continue;
         }
-        const gap = analyzer.getGap(
-          seg0,
-          seg1,
-          fontStyle,
-          fontWeight,
-          fontFamily,
-        );
+        const gap = analyzer.getGap(seg0, seg1, computedStyle);
         const span = window.document.createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
         span.setAttribute("style", "letter-spacing: " + -gap + "em");

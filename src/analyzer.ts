@@ -1,3 +1,8 @@
+type FontStyle = Pick<
+  CSSStyleDeclaration,
+  "fontFamily" | "fontStyle" | "fontWeight"
+>;
+
 function constructHash<
   T extends Record<PropertyKey, any>,
   K extends PropertyKey[],
@@ -75,9 +80,7 @@ function createAnalyzeFn(
   gapCache: {},
   top: number,
   center: number,
-  fontStyle: string,
-  fontFamily: string,
-  fontWeight: string,
+  { fontStyle, fontWeight, fontFamily }: FontStyle,
   ch1: string,
   ch2: string,
   factor: number,
@@ -192,9 +195,7 @@ export class Analyzer {
   prepareGap(
     ch1: string,
     ch2: string,
-    fontStyle: string,
-    fontWeight: string,
-    fontFamily: string,
+    { fontStyle, fontWeight, fontFamily }: FontStyle,
     factor: number,
   ) {
     if (
@@ -239,9 +240,7 @@ export class Analyzer {
         this.#gapCache,
         top,
         center,
-        fontStyle,
-        fontFamily,
-        fontWeight,
+        { fontStyle, fontFamily, fontWeight },
         ch1,
         ch2,
         factor,
@@ -266,9 +265,7 @@ export class Analyzer {
   getGap(
     ch1: string,
     ch2: string,
-    fontStyle: string,
-    fontWeight: string,
-    fontFamily: string,
+    { fontStyle, fontWeight, fontFamily }: FontStyle,
   ) {
     if (this.#analyzeFuncs.length > 0) {
       this.#analyzeAll();
