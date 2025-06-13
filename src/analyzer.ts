@@ -4,53 +4,21 @@ import type {
   CanvasRenderingContext2D,
   ImageData,
 } from "./dom.js";
+import { safeStringify, type JSONSerializable } from "./json.js";
 
 type FontStyle = Pick<
   CSSStyleDeclaration,
   "fontFamily" | "fontStyle" | "fontWeight"
 >;
 
-type Cache<V> = Record<
-  string, // fontStyle
-  Record<
-    string, // fontWeight
-    Record<
-      string, // fontFamily
-      Record<
-        string, // ch1
-        Record<
-          string, // ch2
-          V
-        >
-      >
-    >
-  >
->;
-
 function constructHash<T>(
-  cache: Cache<T>,
-  fontStyle: string,
-  fontWeight: string,
-  fontFamily: string,
-  ch1: string,
-  ch2: string,
+  cache: Record<PropertyKey, T>,
+  keyObj: JSONSerializable,
   value: T,
 ) {
-  if (cache[fontStyle] === undefined) {
-    cache[fontStyle] = {};
-  }
-  if (cache[fontStyle][fontWeight] === undefined) {
-    cache[fontStyle][fontWeight] = {};
-  }
-  if (cache[fontStyle][fontWeight][fontFamily] === undefined) {
-    cache[fontStyle][fontWeight][fontFamily] = {};
-  }
-  if (cache[fontStyle][fontWeight][fontFamily][ch1] === undefined) {
-    cache[fontStyle][fontWeight][fontFamily][ch1] = {};
-  }
-  const subObj = cache[fontStyle][fontWeight][fontFamily][ch1];
-  const old = subObj[ch2];
-  subObj[ch2] = value;
+  const key = safeStringify(keyObj);
+  const old = cache[key];
+  cache[key] = value;
   return old;
 }
 
@@ -108,7 +76,7 @@ function createAnalyzeFn(
   fontSize: number,
   imageWidth: number,
   margin: number,
-  gapCache: Cache<number>,
+  gapCache: Record<PropertyKey, number>,
   top: number,
   center: number,
   { fontStyle, fontWeight, fontFamily }: FontStyle,
@@ -182,7 +150,11 @@ function createAnalyzeFn(
       }
       gap = (min / fontSize) * factor;
     }
-    constructHash(gapCache, fontStyle, fontWeight, fontFamily, ch1, ch2, gap);
+    constructHash(
+      gapCache,
+      { fontStyle, fontWeight, fontFamily, ch1, ch2 },
+      gap,
+    );
   };
 }
 
@@ -193,8 +165,8 @@ const CANVAS_HEIGHT = FONT_SIZE * 2 * CANVAS_TILES;
 const ANALYZER_MARGIN = 16;
 
 export type AnalyzerContext = {
-  preparedCache: Cache<boolean>;
-  gapCache: Cache<number>;
+  preparedCache: Record<PropertyKey, boolean>;
+  gapCache: Record<PropertyKey, number>;
   context: CanvasRenderingContext2D;
   imageTop: number;
   analyzeFuncs: ((image: ImageData) => void)[];
@@ -237,11 +209,7 @@ export function prepareGap(
   if (
     constructHash(
       ctx.preparedCache,
-      fontStyle,
-      fontWeight,
-      fontFamily,
-      ch1,
-      ch2,
+      { fontStyle, fontWeight, fontFamily, ch1, ch2 },
       true,
     ) === true
   ) {
@@ -286,7 +254,10 @@ export function getGap(
   if (ctx.analyzeFuncs.length > 0) {
     analyzeAll(ctx);
   }
-  const ret = ctx.gapCache[fontStyle]?.[fontWeight]?.[fontFamily]?.[ch1]?.[ch2];
+  const ret =
+    ctx.gapCache[
+      safeStringify({ fontStyle, fontWeight, fontFamily, ch1, ch2 })
+    ];
   if (typeof ret === "undefined") {
     throw new Error('runtime assertion failed: type of ret !== "undefined"');
   }
