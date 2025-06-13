@@ -407,16 +407,18 @@ function calcKerning(
 function applyKerning(
   element: Element,
   analyzer: Analyzer,
-  { window, exclude }: Pick<Readonly<KerningOptions>, "window" | "exclude">,
+  {
+    window,
+    exclude,
+    locales,
+  }: Pick<Readonly<KerningOptions>, "window" | "exclude" | "locales">,
 ) {
-  var nextNode;
-  for (var node = element.firstChild; node !== null; node = nextNode) {
-    nextNode = node.nextSibling;
+  for (let node = element.firstChild; node !== null; node = node.nextSibling) {
     if (isHTMLElement(node, window)) {
-      if (node.style.letterSpacing !== "") {
-        continue;
-      }
-      if (excluded_tags.indexOf(node.tagName.toLowerCase()) >= 0) {
+      if (
+        node.style.letterSpacing !== "" ||
+        excluded_tags.includes(node.tagName.toLowerCase())
+      ) {
         continue;
       }
       applyKerning(node, analyzer, { window, exclude });
@@ -431,31 +433,42 @@ function applyKerning(
       ) {
         continue;
       }
-      var fontStyle = window.getComputedStyle(parentNode).fontStyle;
-      var fontWeight = window.getComputedStyle(parentNode).fontWeight;
-      var fontFamily = window.getComputedStyle(parentNode).fontFamily;
-      var spans = window.document.createDocumentFragment();
-      for (var i = 0; i < text.length - 1; ++i) {
-        if (excluded(text[i]!, exclude) || excluded(text[i + 1]!, exclude)) {
-          var textNode = window.document.createTextNode(text[i]!);
+
+      const { fontStyle, fontWeight, fontFamily } =
+        window.getComputedStyle(parentNode);
+
+      const spans = window.document.createDocumentFragment();
+      const graphemes = [
+        ...new Intl.Segmenter(locales, {
+          granularity: "grapheme",
+        }).segment(text),
+      ];
+      for (let i = 0; i < graphemes.length - 1; ++i) {
+        const seg0 = graphemes[i]?.segment ?? "";
+        const seg1 = graphemes[i + 1]?.segment ?? "";
+        if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
+          const textNode = window.document.createTextNode(seg0);
           spans.appendChild(textNode);
           continue;
         }
-        var gap = analyzer.getGap(
-          text[i]!,
-          text[i + 1]!,
+        const gap = analyzer.getGap(
+          seg0,
+          seg1,
           fontStyle,
           fontWeight,
           fontFamily,
         );
-        var span = window.document.createElement("span");
+        const span = window.document.createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
         span.setAttribute("style", "letter-spacing: " + -gap + "em");
-        span.textContent = text[i]!;
+        span.textContent = seg0;
         spans.appendChild(span);
       }
-      var textNode = window.document.createTextNode(text[text.length - 1]!);
-      spans.appendChild(textNode);
+      const lastGrapheme = graphemes.at(-1);
+      if (lastGrapheme && typeof lastGrapheme.segment !== "undefined") {
+        const textNode = window.document.createTextNode(lastGrapheme.segment);
+        spans.appendChild(textNode);
+      }
       spans.normalize();
       parentNode.insertBefore(spans, node);
       parentNode.removeChild(node);
