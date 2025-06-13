@@ -82,13 +82,11 @@ function calcKerning(
   { factor, exclude, locales, window }: Readonly<KerningOptions>,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (isHTMLElement(node, window)) {
-      if (
-        node.style.letterSpacing !== "" ||
-        excluded_tags.includes(node.tagName.toLowerCase())
-      ) {
-        continue;
-      }
+    if (
+      isHTMLElement(node, window) &&
+      node.style.letterSpacing === "" &&
+      !excluded_tags.includes(node.tagName.toLowerCase())
+    ) {
       calcKerning(node, analyzer, { factor, exclude, locales, window });
     } else if (isText(node)) {
       const text = node.nodeValue;
@@ -139,13 +137,11 @@ function applyKerning(
   }: Pick<Readonly<KerningOptions>, "window" | "exclude" | "locales">,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (isHTMLElement(node, window)) {
-      if (
-        node.style.letterSpacing !== "" ||
-        excluded_tags.includes(node.tagName.toLowerCase())
-      ) {
-        continue;
-      }
+    if (
+      isHTMLElement(node, window) &&
+      node.style.letterSpacing === "" &&
+      !excluded_tags.includes(node.tagName.toLowerCase())
+    ) {
       applyKerning(node, analyzer, { window, exclude });
     } else if (isText(node)) {
       const text = node.nodeValue;
