@@ -142,17 +142,17 @@ class Analyzer {
     }
     this.#context.font =
       fontStyle + " " + fontWeight + " " + this.#height + "px " + fontFamily;
-    var ch1Width = this.#context.measureText(ch1).width;
+    const ch1Width = this.#context.measureText(ch1).width;
     this.#context.fillText(ch1, 0, this.#imageTop + this.#height);
-    var center = Math.ceil(ch1Width) + this.#margin;
+    const center = Math.ceil(ch1Width) + this.#margin;
     this.#context.fillText(
       ch2,
       center + this.#margin,
       this.#imageTop + this.#height,
     );
-    var top = this.#imageTop;
+    const top = this.#imageTop;
     this.#imageTop += this.#height * 2;
-    var analyze = (() => {
+    const analyze = (() => {
       const image = this.#image;
       if (image === null) {
         throw new Error("runtime assertion failed: image !== null");
@@ -163,16 +163,17 @@ class Analyzer {
       const gapCache = this.#gapCache;
 
       return function analyzeImage() {
-        var vertices = convexHull(image, 0, top, center, height * 2, true);
-        var leftBorders = new Array(height * 2);
+        let vertices = convexHull(image, 0, top, center, height * 2, true);
+        const leftBorders = new Array(height * 2);
         if (vertices.length > 0) {
-          for (var i = 1; i < vertices.length; ++i) {
-            var x0 = vertices[i - 1]!.x;
-            var y0 = vertices[i - 1]!.y;
-            var x1 = vertices[i]!.x;
-            var y1 = vertices[i]!.y;
-            for (var y = y0; y <= y1; ++y) {
-              var x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
+          for (let i = 1; i < vertices.length; ++i) {
+            const x0 = vertices[i - 1]!.x;
+            const y0 = vertices[i - 1]!.y;
+            const x1 = vertices[i]!.x;
+            const y1 = vertices[i]!.y;
+            for (let y = y0; y <= y1; ++y) {
+              const x =
+                x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
               leftBorders[y] = x;
             }
           }
@@ -185,31 +186,32 @@ class Analyzer {
           height * 2,
           false,
         );
-        var rightBorders = new Array(height * 2);
+        const rightBorders = new Array(height * 2);
         if (vertices.length > 0) {
-          for (var i = 1; i < vertices.length; ++i) {
-            var x0 = vertices[i - 1]!.x;
-            var y0 = vertices[i - 1]!.y;
-            var x1 = vertices[i]!.x;
-            var y1 = vertices[i]!.y;
-            for (var y = y0; y >= y1; --y) {
-              var x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
+          for (let i = 1; i < vertices.length; ++i) {
+            const x0 = vertices[i - 1]!.x;
+            const y0 = vertices[i - 1]!.y;
+            const x1 = vertices[i]!.x;
+            const y1 = vertices[i]!.y;
+            for (let y = y0; y >= y1; --y) {
+              const x =
+                x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
               rightBorders[y] = x;
             }
           }
         }
-        var gaps = [];
-        for (var y = top; y < top + height * 2; ++y) {
+        const gaps = [];
+        for (let y = top; y < top + height * 2; ++y) {
           if (leftBorders[y] !== undefined && rightBorders[y] !== undefined) {
             gaps.push(
               Math.max(0, rightBorders[y] - leftBorders[y] - 1 - margin * 2),
             );
           }
         }
-        var gap;
+        let gap;
         if (gaps.length === 0) {
-          var max = -Number.MAX_VALUE;
-          var min = Number.MAX_VALUE;
+          let max = -Number.MAX_VALUE;
+          let min = Number.MAX_VALUE;
           for (var y = top; y < top + height * 2; ++y) {
             if (leftBorders[y] !== undefined && max < leftBorders[y]) {
               max = leftBorders[y];
@@ -224,7 +226,7 @@ class Analyzer {
             gap = 0;
           }
         } else {
-          var min = gaps[0]!;
+          let min = gaps[0]!;
           for (var i = 0; i < gaps.length; ++i) {
             min = Math.min(min, gaps[i]!);
           }
@@ -253,9 +255,7 @@ class Analyzer {
       this.#width,
       this.#height * 2 * this.#tiles,
     );
-    for (var i = 0; i < this.#analyzeFuncs.length; ++i) {
-      this.#analyzeFuncs[i]!();
-    }
+    this.#analyzeFuncs.forEach((fn) => fn());
     this.#image = null;
     this.#imageTop = 0;
     this.#analyzeFuncs.length = 0;
