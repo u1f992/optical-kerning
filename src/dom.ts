@@ -6,6 +6,7 @@ import type {
   HTMLElement,
   HTMLCanvasElement,
   CSSStyleDeclaration,
+  CanvasRenderingContext2D,
   ImageData,
 } from "./typescript/lib/lib.dom.js";
 export type {
@@ -16,5 +17,6 @@ export type {
   HTMLElement,
   HTMLCanvasElement,
   CSSStyleDeclaration,
+  CanvasRenderingContext2D,
   ImageData,
 };

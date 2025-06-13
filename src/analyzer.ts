@@ -1,6 +1,7 @@
 import type {
   HTMLCanvasElement,
   CSSStyleDeclaration,
+  CanvasRenderingContext2D,
   ImageData,
 } from "./dom.js";
 
@@ -192,106 +193,112 @@ const CANVAS_WIDTH = 128;
 const CANVAS_TILES = 64;
 const ANALYZER_MARGIN = 16;
 
-export class Analyzer {
-  #preparedCache: Cache<boolean>;
-  #gapCache: Cache<number>;
-  #context;
-  #imageTop;
-  #analyzeFuncs: ((image: ImageData) => void)[];
-  constructor(canvasConstructor: () => HTMLCanvasElement) {
-    this.#preparedCache = {};
-    this.#gapCache = {};
-    const canvas = canvasConstructor();
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT * 2 * CANVAS_TILES;
-    canvas.style.display = "none";
-    this.#context = canvas.getContext("2d", { willReadFrequently: true })!;
-    this.#context.fillStyle = "#000000";
-    this.#context.textBaseline = "middle";
-    this.#imageTop = 0;
-    this.#analyzeFuncs = [];
-  }
-  prepareGap(
-    ch1: string,
-    ch2: string,
-    { fontStyle, fontWeight, fontFamily }: FontStyle,
-    factor: number,
-  ) {
-    if (
-      constructHash(
-        this.#preparedCache,
-        fontStyle,
-        fontWeight,
-        fontFamily,
-        ch1,
-        ch2,
-        true,
-      ) === true
-    ) {
-      return;
-    }
-    if (this.#imageTop === 0) {
-      this.#context.clearRect(
-        0,
-        0,
-        CANVAS_WIDTH,
-        CANVAS_HEIGHT * 2 * CANVAS_TILES,
-      );
-    }
-    this.#context.font =
-      fontStyle + " " + fontWeight + " " + CANVAS_HEIGHT + "px " + fontFamily;
-    const ch1Width = this.#context.measureText(ch1).width;
-    this.#context.fillText(ch1, 0, this.#imageTop + CANVAS_HEIGHT);
-    const center = Math.ceil(ch1Width) + ANALYZER_MARGIN;
-    this.#context.fillText(
+export type AnalyzerContext = {
+  preparedCache: Cache<boolean>;
+  gapCache: Cache<number>;
+  context: CanvasRenderingContext2D;
+  imageTop: number;
+  analyzeFuncs: ((image: ImageData) => void)[];
+};
+
+export function createAnalyzerContext(
+  canvasConstructor: () => HTMLCanvasElement,
+): AnalyzerContext {
+  const canvas = canvasConstructor();
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT * 2 * CANVAS_TILES;
+  canvas.style.display = "none";
+  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  context.fillStyle = "#000000";
+  context.textBaseline = "middle";
+
+  return {
+    preparedCache: {},
+    gapCache: {},
+    context,
+    imageTop: 0,
+    analyzeFuncs: [],
+  };
+}
+
+function analyzeAll(ctx: AnalyzerContext) {
+  const image = ctx.context.getImageData(
+    0,
+    0,
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT * 2 * CANVAS_TILES,
+  );
+  ctx.analyzeFuncs.forEach((fn) => fn(image));
+  ctx.imageTop = 0;
+  ctx.analyzeFuncs.length = 0;
+}
+
+export function prepareGap(
+  ctx: AnalyzerContext,
+  ch1: string,
+  ch2: string,
+  { fontStyle, fontWeight, fontFamily }: FontStyle,
+  factor: number,
+) {
+  if (
+    constructHash(
+      ctx.preparedCache,
+      fontStyle,
+      fontWeight,
+      fontFamily,
+      ch1,
       ch2,
-      center + ANALYZER_MARGIN,
-      this.#imageTop + CANVAS_HEIGHT,
-    );
-    const top = this.#imageTop;
-    this.#imageTop += CANVAS_HEIGHT * 2;
-    this.#analyzeFuncs.push(
-      createAnalyzeFn(
-        CANVAS_HEIGHT,
-        CANVAS_WIDTH,
-        ANALYZER_MARGIN,
-        this.#gapCache,
-        top,
-        center,
-        { fontStyle, fontFamily, fontWeight },
-        ch1,
-        ch2,
-        factor,
-      ),
-    );
-    if (this.#analyzeFuncs.length === CANVAS_TILES) {
-      this.#analyzeAll();
-    }
-  }
-  #analyzeAll() {
-    const image = this.#context.getImageData(
-      0,
-      0,
-      CANVAS_WIDTH,
-      CANVAS_HEIGHT * 2 * CANVAS_TILES,
-    );
-    this.#analyzeFuncs.forEach((fn) => fn(image));
-    this.#imageTop = 0;
-    this.#analyzeFuncs.length = 0;
-  }
-  getGap(
-    ch1: string,
-    ch2: string,
-    { fontStyle, fontWeight, fontFamily }: FontStyle,
+      true,
+    ) === true
   ) {
-    if (this.#analyzeFuncs.length > 0) {
-      this.#analyzeAll();
-    }
-    const ret =
-      this.#gapCache[fontStyle]?.[fontWeight]?.[fontFamily]?.[ch1]?.[ch2];
-    if (typeof ret === "undefined") {
-      throw new Error('runtime assertion failed: type of ret !== "undefined"');
-    }
-    return ret;
+    return;
   }
+  if (ctx.imageTop === 0) {
+    ctx.context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT * 2 * CANVAS_TILES);
+  }
+  ctx.context.font =
+    fontStyle + " " + fontWeight + " " + CANVAS_HEIGHT + "px " + fontFamily;
+  const ch1Width = ctx.context.measureText(ch1).width;
+  ctx.context.fillText(ch1, 0, ctx.imageTop + CANVAS_HEIGHT);
+  const center = Math.ceil(ch1Width) + ANALYZER_MARGIN;
+  ctx.context.fillText(
+    ch2,
+    center + ANALYZER_MARGIN,
+    ctx.imageTop + CANVAS_HEIGHT,
+  );
+  const top = ctx.imageTop;
+  ctx.imageTop += CANVAS_HEIGHT * 2;
+  ctx.analyzeFuncs.push(
+    createAnalyzeFn(
+      CANVAS_HEIGHT,
+      CANVAS_WIDTH,
+      ANALYZER_MARGIN,
+      ctx.gapCache,
+      top,
+      center,
+      { fontStyle, fontFamily, fontWeight },
+      ch1,
+      ch2,
+      factor,
+    ),
+  );
+  if (ctx.analyzeFuncs.length === CANVAS_TILES) {
+    analyzeAll(ctx);
+  }
+}
+
+export function getGap(
+  ctx: AnalyzerContext,
+  ch1: string,
+  ch2: string,
+  { fontStyle, fontWeight, fontFamily }: FontStyle,
+) {
+  if (ctx.analyzeFuncs.length > 0) {
+    analyzeAll(ctx);
+  }
+  const ret = ctx.gapCache[fontStyle]?.[fontWeight]?.[fontFamily]?.[ch1]?.[ch2];
+  if (typeof ret === "undefined") {
+    throw new Error('runtime assertion failed: type of ret !== "undefined"');
+  }
+  return ret;
 }

@@ -1,5 +1,10 @@
-import { Analyzer } from "./analyzer.js";
-import type { Window, Node, Element, HTMLCanvasElement } from "./dom.js";
+import {
+  createAnalyzerContext,
+  prepareGap,
+  getGap,
+  type AnalyzerContext,
+} from "./analyzer.js";
+import type { Window, Node, Element } from "./dom.js";
 import { isElement, isText, isHTMLElement } from "./html.js";
 import { pairwise } from "./util.js";
 
@@ -78,7 +83,7 @@ function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
 function calcKerning(
   element: Element,
   { getComputedStyle }: Pick<WindowFunctions, "getComputedStyle">,
-  analyzer: Analyzer,
+  analyzer: AnalyzerContext,
   { factor, exclude, locales }: Readonly<KerningOptions>,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
@@ -115,7 +120,7 @@ function calcKerning(
         if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
           continue;
         }
-        analyzer.prepareGap(seg0, seg1, computedStyle, factor);
+        prepareGap(analyzer, seg0, seg1, computedStyle, factor);
       }
     }
   }
@@ -135,7 +140,7 @@ function applyKerning(
     | "createTextNode"
     | "createElement"
   >,
-  analyzer: Analyzer,
+  analyzer: AnalyzerContext,
   { exclude, locales }: Pick<Readonly<KerningOptions>, "exclude" | "locales">,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
@@ -182,7 +187,7 @@ function applyKerning(
           spans.appendChild(textNode);
           continue;
         }
-        const gap = analyzer.getGap(seg0, seg1, computedStyle);
+        const gap = getGap(analyzer, seg0, seg1, computedStyle);
         const span = createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
         span.setAttribute("style", "letter-spacing: " + -gap + "em");
@@ -221,11 +226,8 @@ export function kerning(
     ),
     createElement: window.document.createElement.bind(window.document),
   } satisfies WindowFunctions;
-  const analyzer = new Analyzer(
-    window.document.createElement.bind(
-      window.document,
-      "canvas",
-    ) as () => HTMLCanvasElement,
+  const analyzer = createAnalyzerContext(() =>
+    window.document.createElement("canvas"),
   );
   removeKerning(element, windowFn);
   if (options.factor !== 0.0) {
