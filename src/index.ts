@@ -37,38 +37,38 @@ function convexHull(
   height: number,
   right: boolean,
 ) {
-  var vertices = [];
+  const vertices = [];
   if (right) {
-    for (var y = sy; y < sy + height; ++y) {
-      var i = 3 + 4 * (sx + width - 1 + y * image.width);
-      for (var x = sx + width - 1; x >= sx; --x, i -= 4) {
+    for (let y = sy; y < sy + height; ++y) {
+      let i = 3 + 4 * (sx + width - 1 + y * image.width);
+      for (let x = sx + width - 1; x >= sx; --x, i -= 4) {
         if (image.data[i] !== 0) {
-          vertices.push({ x: x, y: y });
+          vertices.push({ x, y });
           break;
         }
       }
     }
   } else {
-    for (var y = sy + height - 1; y >= sy; --y) {
-      var i = 3 + 4 * (sx + y * image.width);
-      for (var x = sx; x < sx + height; ++x, i += 4) {
+    for (let y = sy + height - 1; y >= sy; --y) {
+      let i = 3 + 4 * (sx + y * image.width);
+      for (let x = sx; x < sx + height; ++x, i += 4) {
         if (image.data[i] !== 0) {
-          vertices.push({ x: x, y: y });
+          vertices.push({ x, y });
           break;
         }
       }
     }
   }
-  var hull = [];
-  for (var i = 0; i < vertices.length; ++i) {
+  const hull = [];
+  for (let i = 0; i < vertices.length; ++i) {
     hull.push(vertices[i]);
     while (hull.length >= 3) {
-      var x0 = hull[hull.length - 3]!.x;
-      var y0 = hull[hull.length - 3]!.y;
-      var x1 = hull[hull.length - 2]!.x;
-      var y1 = hull[hull.length - 2]!.y;
-      var x2 = hull[hull.length - 1]!.x;
-      var y2 = hull[hull.length - 1]!.y;
+      const x0 = hull[hull.length - 3]!.x;
+      const y0 = hull[hull.length - 3]!.y;
+      const x1 = hull[hull.length - 2]!.x;
+      const y1 = hull[hull.length - 2]!.y;
+      const x2 = hull[hull.length - 1]!.x;
+      const y2 = hull[hull.length - 1]!.y;
       if ((x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0) > 0) {
         break;
       }
