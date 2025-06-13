@@ -79,6 +79,96 @@ function convexHull(
   return hull;
 }
 
+function createAnalyzeFn(
+  image: ImageData | null,
+  height: number,
+  width: number,
+  margin: number,
+  gapCache: {},
+  top: number,
+  center: number,
+  fontStyle: string,
+  fontFamily: string,
+  fontWeight: string,
+  ch1: string,
+  ch2: string,
+  factor: number,
+) {
+  return () => {
+    if (image === null) {
+      throw new Error("runtime assertion failed: image !== null");
+    }
+    let vertices = convexHull(image, 0, top, center, height * 2, true);
+    const leftBorders = new Array(height * 2);
+    if (vertices.length > 0) {
+      for (let i = 1; i < vertices.length; ++i) {
+        const x0 = vertices[i - 1]!.x;
+        const y0 = vertices[i - 1]!.y;
+        const x1 = vertices[i]!.x;
+        const y1 = vertices[i]!.y;
+        for (let y = y0; y <= y1; ++y) {
+          const x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
+          leftBorders[y] = x;
+        }
+      }
+    }
+    vertices = convexHull(
+      image,
+      center,
+      top,
+      width - center,
+      height * 2,
+      false,
+    );
+    const rightBorders = new Array(height * 2);
+    if (vertices.length > 0) {
+      for (let i = 1; i < vertices.length; ++i) {
+        const x0 = vertices[i - 1]!.x;
+        const y0 = vertices[i - 1]!.y;
+        const x1 = vertices[i]!.x;
+        const y1 = vertices[i]!.y;
+        for (let y = y0; y >= y1; --y) {
+          const x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
+          rightBorders[y] = x;
+        }
+      }
+    }
+    const gaps = [];
+    for (let y = top; y < top + height * 2; ++y) {
+      if (leftBorders[y] !== undefined && rightBorders[y] !== undefined) {
+        gaps.push(
+          Math.max(0, rightBorders[y] - leftBorders[y] - 1 - margin * 2),
+        );
+      }
+    }
+    let gap;
+    if (gaps.length === 0) {
+      let max = -Number.MAX_VALUE;
+      let min = Number.MAX_VALUE;
+      for (var y = top; y < top + height * 2; ++y) {
+        if (leftBorders[y] !== undefined && max < leftBorders[y]) {
+          max = leftBorders[y];
+        }
+        if (rightBorders[y] !== undefined && min > rightBorders[y]) {
+          min = rightBorders[y];
+        }
+      }
+      if (max !== -Number.MAX_VALUE && min !== Number.MAX_VALUE) {
+        gap = ((min - max - 1 - margin * 2) / height) * factor;
+      } else {
+        gap = 0;
+      }
+    } else {
+      let min = gaps[0]!;
+      for (var i = 0; i < gaps.length; ++i) {
+        min = Math.min(min, gaps[i]!);
+      }
+      gap = (min / height) * factor;
+    }
+    constructHash(gapCache, fontStyle, fontWeight, fontFamily, ch1, ch2, gap);
+  };
+}
+
 class Analyzer {
   #window;
   #height;
@@ -117,7 +207,7 @@ class Analyzer {
     fontStyle: string,
     fontWeight: string,
     fontFamily: string,
-    options: Readonly<KerningOptions>,
+    { factor }: Pick<KerningOptions, "factor">,
   ) {
     if (
       constructHash(
@@ -152,98 +242,23 @@ class Analyzer {
     );
     const top = this.#imageTop;
     this.#imageTop += this.#height * 2;
-    const analyze = (() => {
-      const image = this.#image;
-      if (image === null) {
-        throw new Error("runtime assertion failed: image !== null");
-      }
-      const height = this.#height;
-      const width = this.#width;
-      const margin = this.#margin;
-      const gapCache = this.#gapCache;
-
-      return function analyzeImage() {
-        let vertices = convexHull(image, 0, top, center, height * 2, true);
-        const leftBorders = new Array(height * 2);
-        if (vertices.length > 0) {
-          for (let i = 1; i < vertices.length; ++i) {
-            const x0 = vertices[i - 1]!.x;
-            const y0 = vertices[i - 1]!.y;
-            const x1 = vertices[i]!.x;
-            const y1 = vertices[i]!.y;
-            for (let y = y0; y <= y1; ++y) {
-              const x =
-                x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
-              leftBorders[y] = x;
-            }
-          }
-        }
-        vertices = convexHull(
-          image,
-          center,
-          top,
-          width - center,
-          height * 2,
-          false,
-        );
-        const rightBorders = new Array(height * 2);
-        if (vertices.length > 0) {
-          for (let i = 1; i < vertices.length; ++i) {
-            const x0 = vertices[i - 1]!.x;
-            const y0 = vertices[i - 1]!.y;
-            const x1 = vertices[i]!.x;
-            const y1 = vertices[i]!.y;
-            for (let y = y0; y >= y1; --y) {
-              const x =
-                x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
-              rightBorders[y] = x;
-            }
-          }
-        }
-        const gaps = [];
-        for (let y = top; y < top + height * 2; ++y) {
-          if (leftBorders[y] !== undefined && rightBorders[y] !== undefined) {
-            gaps.push(
-              Math.max(0, rightBorders[y] - leftBorders[y] - 1 - margin * 2),
-            );
-          }
-        }
-        let gap;
-        if (gaps.length === 0) {
-          let max = -Number.MAX_VALUE;
-          let min = Number.MAX_VALUE;
-          for (var y = top; y < top + height * 2; ++y) {
-            if (leftBorders[y] !== undefined && max < leftBorders[y]) {
-              max = leftBorders[y];
-            }
-            if (rightBorders[y] !== undefined && min > rightBorders[y]) {
-              min = rightBorders[y];
-            }
-          }
-          if (max !== -Number.MAX_VALUE && min !== Number.MAX_VALUE) {
-            gap = ((min - max - 1 - margin * 2) / height) * options.factor;
-          } else {
-            gap = 0;
-          }
-        } else {
-          let min = gaps[0]!;
-          for (var i = 0; i < gaps.length; ++i) {
-            min = Math.min(min, gaps[i]!);
-          }
-          gap = (min / height) * options.factor;
-        }
-        constructHash(
-          gapCache,
-          fontStyle,
-          fontWeight,
-          fontFamily,
-          ch1,
-          ch2,
-          gap,
-        );
-      };
-    })();
-    this.#analyzeFuncs.push(analyze);
+    this.#analyzeFuncs.push(
+      createAnalyzeFn(
+        this.#image,
+        this.#height,
+        this.#width,
+        this.#margin,
+        this.#gapCache,
+        top,
+        center,
+        fontStyle,
+        fontFamily,
+        fontWeight,
+        ch1,
+        ch2,
+        factor,
+      ),
+    );
     if (this.#analyzeFuncs.length === this.#tiles) {
       this.#analyzeAll();
     }
@@ -395,9 +410,6 @@ function calcKerning(
         }
         analyzer.prepareGap(seg0, seg1, fontStyle, fontWeight, fontFamily, {
           factor,
-          exclude,
-          locales,
-          window,
         });
       }
     }
