@@ -86,7 +86,7 @@ function convexHull(
   }
   const hull = [];
   for (let i = 0; i < vertices.length; ++i) {
-    hull.push(vertices[i]);
+    hull.push(vertices[i]!);
     while (hull.length >= 3) {
       const x0 = hull[hull.length - 3]!.x;
       const y0 = hull[hull.length - 3]!.y;
@@ -97,7 +97,7 @@ function convexHull(
       if ((x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0) > 0) {
         break;
       }
-      hull[hull.length - 2] = hull[hull.length - 1];
+      hull[hull.length - 2] = hull[hull.length - 1]!;
       --hull.length;
     }
   }
@@ -105,8 +105,8 @@ function convexHull(
 }
 
 function createAnalyzeFn(
-  height: number,
-  width: number,
+  fontSize: number,
+  imageWidth: number,
   margin: number,
   gapCache: Cache<number>,
   top: number,
@@ -117,63 +117,61 @@ function createAnalyzeFn(
   factor: number,
 ) {
   return (image: ImageData) => {
-    let vertices = convexHull(image, 0, top, center, height * 2, true);
-    const leftBorders = new Array(height * 2);
-    if (vertices.length > 0) {
-      for (let i = 1; i < vertices.length; ++i) {
-        const x0 = vertices[i - 1]!.x;
-        const y0 = vertices[i - 1]!.y;
-        const x1 = vertices[i]!.x;
-        const y1 = vertices[i]!.y;
-        for (let y = y0; y <= y1; ++y) {
+    const ch1Vertices = convexHull(image, 0, top, center, fontSize * 2, true);
+    const leftBorders = new Array<number>(fontSize * 2);
+    if (ch1Vertices.length > 0) {
+      for (let i = 1; i < ch1Vertices.length; i++) {
+        const { x: x0, y: y0 } = ch1Vertices[i - 1]!;
+        const { x: x1, y: y1 } = ch1Vertices[i]!;
+        for (let y = y0; y <= y1; y++) {
           const x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
           leftBorders[y] = x;
         }
       }
     }
-    vertices = convexHull(
+    const ch2Vertices = convexHull(
       image,
       center,
       top,
-      width - center,
-      height * 2,
+      imageWidth - center,
+      fontSize * 2,
       false,
     );
-    const rightBorders = new Array(height * 2);
-    if (vertices.length > 0) {
-      for (let i = 1; i < vertices.length; ++i) {
-        const x0 = vertices[i - 1]!.x;
-        const y0 = vertices[i - 1]!.y;
-        const x1 = vertices[i]!.x;
-        const y1 = vertices[i]!.y;
-        for (let y = y0; y >= y1; --y) {
+    const rightBorders = new Array<number>(fontSize * 2);
+    if (ch2Vertices.length > 0) {
+      for (let i = 1; i < ch2Vertices.length; ++i) {
+        const { x: x0, y: y0 } = ch2Vertices[i - 1]!;
+        const { x: x1, y: y1 } = ch2Vertices[i]!;
+        for (let y = y0; y >= y1; y--) {
           const x = x0 + Math.floor(((x1 - x0) * (y - y0)) / (y1 - y0) + 0.5);
           rightBorders[y] = x;
         }
       }
     }
     const gaps = [];
-    for (let y = top; y < top + height * 2; ++y) {
-      if (leftBorders[y] !== undefined && rightBorders[y] !== undefined) {
-        gaps.push(
-          Math.max(0, rightBorders[y] - leftBorders[y] - 1 - margin * 2),
-        );
+    for (let y = top; y < top + fontSize * 2; ++y) {
+      const leftX = leftBorders[y];
+      const rightX = rightBorders[y];
+      if (typeof leftX !== "undefined" && typeof rightX !== "undefined") {
+        gaps.push(Math.max(0, rightX - leftX - 1 - margin * 2));
       }
     }
     let gap;
     if (gaps.length === 0) {
       let max = -Number.MAX_VALUE;
       let min = Number.MAX_VALUE;
-      for (var y = top; y < top + height * 2; ++y) {
-        if (leftBorders[y] !== undefined && max < leftBorders[y]) {
-          max = leftBorders[y];
+      for (var y = top; y < top + fontSize * 2; ++y) {
+        const leftX = leftBorders[y];
+        if (typeof leftX !== "undefined" && max < leftX) {
+          max = leftX;
         }
-        if (rightBorders[y] !== undefined && min > rightBorders[y]) {
-          min = rightBorders[y];
+        const rightX = rightBorders[y];
+        if (typeof rightX !== "undefined" && min > rightX) {
+          min = rightX;
         }
       }
       if (max !== -Number.MAX_VALUE && min !== Number.MAX_VALUE) {
-        gap = ((min - max - 1 - margin * 2) / height) * factor;
+        gap = ((min - max - 1 - margin * 2) / fontSize) * factor;
       } else {
         gap = 0;
       }
@@ -182,15 +180,16 @@ function createAnalyzeFn(
       for (var i = 0; i < gaps.length; ++i) {
         min = Math.min(min, gaps[i]!);
       }
-      gap = (min / height) * factor;
+      gap = (min / fontSize) * factor;
     }
     constructHash(gapCache, fontStyle, fontWeight, fontFamily, ch1, ch2, gap);
   };
 }
 
-const CANVAS_HEIGHT = 32;
+const FONT_SIZE = 32;
 const CANVAS_WIDTH = 128;
 const CANVAS_TILES = 64;
+const CANVAS_HEIGHT = FONT_SIZE * 2 * CANVAS_TILES;
 const ANALYZER_MARGIN = 16;
 
 export type AnalyzerContext = {
@@ -206,7 +205,7 @@ export function createAnalyzerContext(
 ): AnalyzerContext {
   const canvas = canvasConstructor();
   canvas.width = CANVAS_WIDTH;
-  canvas.height = CANVAS_HEIGHT * 2 * CANVAS_TILES;
+  canvas.height = CANVAS_HEIGHT;
   canvas.style.display = "none";
   const context = canvas.getContext("2d", { willReadFrequently: true })!;
   context.fillStyle = "#000000";
@@ -222,12 +221,7 @@ export function createAnalyzerContext(
 }
 
 function analyzeAll(ctx: AnalyzerContext) {
-  const image = ctx.context.getImageData(
-    0,
-    0,
-    CANVAS_WIDTH,
-    CANVAS_HEIGHT * 2 * CANVAS_TILES,
-  );
+  const image = ctx.context.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   ctx.analyzeFuncs.forEach((fn) => fn(image));
   ctx.imageTop = 0;
   ctx.analyzeFuncs.length = 0;
@@ -254,23 +248,19 @@ export function prepareGap(
     return;
   }
   if (ctx.imageTop === 0) {
-    ctx.context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT * 2 * CANVAS_TILES);
+    ctx.context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   }
   ctx.context.font =
-    fontStyle + " " + fontWeight + " " + CANVAS_HEIGHT + "px " + fontFamily;
+    fontStyle + " " + fontWeight + " " + FONT_SIZE + "px " + fontFamily;
   const ch1Width = ctx.context.measureText(ch1).width;
-  ctx.context.fillText(ch1, 0, ctx.imageTop + CANVAS_HEIGHT);
+  ctx.context.fillText(ch1, 0, ctx.imageTop + FONT_SIZE);
   const center = Math.ceil(ch1Width) + ANALYZER_MARGIN;
-  ctx.context.fillText(
-    ch2,
-    center + ANALYZER_MARGIN,
-    ctx.imageTop + CANVAS_HEIGHT,
-  );
+  ctx.context.fillText(ch2, center + ANALYZER_MARGIN, ctx.imageTop + FONT_SIZE);
   const top = ctx.imageTop;
-  ctx.imageTop += CANVAS_HEIGHT * 2;
+  ctx.imageTop += FONT_SIZE * 2;
   ctx.analyzeFuncs.push(
     createAnalyzeFn(
-      CANVAS_HEIGHT,
+      FONT_SIZE,
       CANVAS_WIDTH,
       ANALYZER_MARGIN,
       ctx.gapCache,
