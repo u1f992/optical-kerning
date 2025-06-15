@@ -23,8 +23,10 @@
     "jquery": ">=1.0.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^24.0.1",
     "http-server": "^14.1.1",
+    "jsdom": "^26.1.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   },

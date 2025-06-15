@@ -1,4 +1,3 @@
-import type { CSSStyleDeclaration, HTMLCanvasElement } from "./dom.js";
 import { safeStringify } from "./util.js";
 import { getConvexHull, interpolateIntegerY } from "./pixel-geometry.js";
 

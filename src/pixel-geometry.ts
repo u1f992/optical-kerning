@@ -1,5 +1,3 @@
-import type { ImageData } from "./dom.js";
-
 export function getPixel(
   { width, data }: ImageData,
   x: number,

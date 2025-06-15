@@ -1,11 +1,4 @@
-import {
-  type Window,
-  type Node,
-  type Element,
-  isElement,
-  isText,
-  isHTMLElement,
-} from "./dom.js";
+import { isElement, isText, isHTMLElement } from "./dom.js";
 import {
   createSpacingCache,
   exportSpacingCache,
@@ -13,6 +6,7 @@ import {
   calculateKerning,
   type SpacingCache,
 } from "./kerning.js";
+import { unwrapElements } from "./unwrap-elements.js";
 import { pairwise } from "./util.js";
 
 export {
@@ -22,10 +16,10 @@ export {
   importSpacingCache,
 };
 
-export type KerningOptions = {
+export type OpticalKerningOptions = {
   factor: number;
   exclude: readonly (string | [number, number])[];
-  locales?: Intl.LocalesArgument;
+  locales: Intl.LocalesArgument;
   cache: SpacingCache;
 };
 
@@ -35,67 +29,31 @@ type WindowFunctions = Pick<Window, "getComputedStyle"> &
     "createTextNode" | "createDocumentFragment" | "createElement"
   >;
 
-function removeKerning(
-  element: Element,
-  { createTextNode }: Pick<WindowFunctions, "createTextNode">,
-) {
-  let text = "";
-  let toRemove: Node[] = [];
-  function replace() {
-    if (toRemove.length > 0) {
-      node!.parentNode!.insertBefore(createTextNode(text), toRemove[0]!);
-      for (let k = 0; k < toRemove.length; ++k) {
-        node!.parentNode!.removeChild(toRemove[k]!);
-      }
-      toRemove.length = 0;
-      text = "";
-    }
-  }
-  let nextNode;
-  // FIXME: `var` statement
-  for (var node = element.firstChild; node !== null; node = nextNode) {
-    nextNode = node.nextSibling;
-    if (isElement(node)) {
-      if (node.className === "optical-kerning-applied") {
-        text += node.textContent;
-        toRemove.push(node);
-      } else {
-        replace();
-        removeKerning(node, { createTextNode });
-      }
-    } else {
-      replace();
-    }
-  }
-  replace();
-  element.normalize();
+function getGraphemes(text: string, locales: Intl.LocalesArgument) {
+  return [
+    ...new Intl.Segmenter(locales, {
+      granularity: "grapheme",
+    }).segment(text),
+  ].map((seg) => seg.segment);
 }
 
-const excluded_tags = ["option", "script", "textarea"];
-
-function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
-  const code = ch.codePointAt(0);
+function excluded(
+  grapheme: string,
+  { exclude, locales }: Pick<OpticalKerningOptions, "exclude" | "locales">,
+) {
+  const code = grapheme.codePointAt(0);
   if (typeof code === "undefined") {
     throw new Error('runtime assertion failed: typeof code !== "undefined"');
   }
-  for (let i = 0; i < exclude.length; ++i) {
-    const ex = exclude[i];
-    if (Array.isArray(ex)) {
-      if (ex[0] <= code && code <= ex[1]) {
-        return true;
-      }
-    } else if (typeof ex === "string") {
-      for (let k = 0; k < ex.length; ++k) {
-        if (ex.codePointAt(k) === code) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  return exclude.some(
+    (ex) =>
+      (Array.isArray(ex) && ex[0] <= code && code <= ex[1]) ||
+      (typeof ex === "string" &&
+        getGraphemes(ex, locales).some((g) => g.codePointAt(0) === code)),
+  );
 }
 
-function applyKerning(
+function apply(
   element: Element,
   {
     getComputedStyle,
@@ -103,20 +61,11 @@ function applyKerning(
     createTextNode,
     createElement,
   }: WindowFunctions,
-  {
-    factor,
-    exclude,
-    locales,
-    cache,
-  }: Pick<Readonly<KerningOptions>, "factor" | "exclude" | "locales" | "cache">,
+  { factor, exclude, locales, cache }: OpticalKerningOptions,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (
-      isHTMLElement(node) &&
-      node.style.letterSpacing === "" &&
-      !excluded_tags.includes(node.tagName.toLowerCase())
-    ) {
-      applyKerning(
+    if (isHTMLElement(node) && node.style.letterSpacing === "") {
+      apply(
         node,
         {
           getComputedStyle,
@@ -140,15 +89,13 @@ function applyKerning(
 
       const computedStyle = getComputedStyle(parentNode);
       const spans = createDocumentFragment();
-      const graphemes = [
-        ...new Intl.Segmenter(locales, {
-          granularity: "grapheme",
-        }).segment(text),
-      ];
-      for (const [{ segment: g0 }, { segment: g1 }] of pairwise(graphemes)) {
-        if (excluded(g0, exclude) || excluded(g1, exclude)) {
-          const textNode = createTextNode(g0);
-          spans.appendChild(textNode);
+      const graphemes = getGraphemes(text, locales);
+      for (const [g0, g1] of pairwise(graphemes)) {
+        if (
+          excluded(g0, { exclude, locales }) ||
+          excluded(g1, { exclude, locales })
+        ) {
+          spans.appendChild(createTextNode(g0));
           continue;
         }
         const gap = calculateKerning(
@@ -161,17 +108,13 @@ function applyKerning(
         );
         const span = createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
-        span.setAttribute(
-          "style",
-          "letter-spacing: " + (gap !== null ? -gap + "em" : "normal"),
-        );
+        span.style.letterSpacing = gap !== null ? -gap + "em" : "normal";
         span.textContent = g0;
         spans.appendChild(span);
       }
       const lastGrapheme = graphemes.at(-1);
-      if (lastGrapheme && typeof lastGrapheme.segment !== "undefined") {
-        const textNode = createTextNode(lastGrapheme.segment);
-        spans.appendChild(textNode);
+      if (typeof lastGrapheme !== "undefined") {
+        spans.appendChild(createTextNode(lastGrapheme));
       }
       spans.normalize();
       parentNode.insertBefore(spans, node);
@@ -180,9 +123,9 @@ function applyKerning(
   }
 }
 
-export function kerning(
+export function applyOpticalKerning(
   element: Element,
-  options: Partial<Readonly<KerningOptions>>,
+  options: Partial<Readonly<OpticalKerningOptions>>,
 ) {
   const mergedOptions = {
     ...{
@@ -192,7 +135,8 @@ export function kerning(
       cache: createSpacingCache(),
     },
     ...options,
-  } satisfies KerningOptions;
+  } satisfies OpticalKerningOptions;
+
   const window = element.ownerDocument.defaultView;
   if (!window) {
     throw new Error("runtime assertion failed: window !== null");
@@ -205,8 +149,12 @@ export function kerning(
     ),
     createElement: window.document.createElement.bind(window.document),
   } satisfies WindowFunctions;
-  removeKerning(element, windowFn);
+
+  unwrapElements(
+    element,
+    (element) => element.className === "optical-kerning-applied",
+  );
   if (options.factor !== 0.0) {
-    applyKerning(element, windowFn, mergedOptions);
+    apply(element, windowFn, mergedOptions);
   }
 }
