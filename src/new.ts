@@ -1,23 +1,31 @@
-import type {
-  CSSStyleDeclaration,
-  HTMLCanvasElement,
-  ImageData,
-} from "./dom.js";
+import type { CSSStyleDeclaration, HTMLCanvasElement } from "./dom.js";
 import { safeStringify } from "./json.js";
+import { getConvexHull, interpolateIntegerY } from "./pixel-geometry.js";
 
-function getPixel({ width, data }: ImageData, x: number, y: number) {
-  const index = (y * width + x) * 4;
-  return /** @type {[number,number,number,number]} */ [
-    data[index],
-    data[index + 1],
-    data[index + 2],
-    data[index + 3],
-  ];
+const cacheBrand = Symbol();
+type SpacingCache = Map<string, [number[], number[]]> & {
+  [cacheBrand]: unknown;
+};
+export function createSpacingCache(): SpacingCache {
+  return new Map<string, [number[], number[]]>() as SpacingCache;
 }
-
-const cache = new Map<string, { left: number[]; right: number[] }>();
-export function _exportSpacingCache() {
+export function exportSpacingCache(cache: SpacingCache) {
   return safeStringify(Object.fromEntries(cache.entries()));
+}
+export function importSpacingCache(input: string) {
+  const raw = JSON.parse(input) as Record<
+    string,
+    [(number | null)[], (number | null)[]]
+  >;
+  const cache = createSpacingCache();
+  for (const [key, [left, right]] of Object.entries(raw)) {
+    const restored: [number[], number[]] = [
+      left.map((v) => (v === null ? Infinity : v)),
+      right.map((v) => (v === null ? Infinity : v)),
+    ];
+    cache.set(key, restored);
+  }
+  return cache;
 }
 
 type Font = Pick<
@@ -29,6 +37,7 @@ function measureSpacing(
   grapheme: string,
   { fontFamily, fontStyle, fontWeight }: Readonly<Font>,
   canvasConstructor: () => HTMLCanvasElement,
+  cache: SpacingCache,
 ) {
   const cacheKey = safeStringify({
     grapheme,
@@ -60,27 +69,31 @@ function measureSpacing(
   const { width } = context.measureText(grapheme);
   const rightMargin = leftMargin + width;
   context.fillText(grapheme, leftMargin, baseline);
+
   const image = context.getImageData(0, 0, canvasWidth, canvasHeight);
-
-  const leftSpacing = new Array<number>(canvasHeight).fill(Infinity);
-  for (let x = 0; x < canvasWidth; x++) {
-    for (let y = 0; y < canvasHeight; y++) {
-      if (leftSpacing[y] === Infinity && getPixel(image, x, y)[3] !== 0) {
-        leftSpacing[y] = (x - leftMargin) / fontSizePx;
-      }
+  const hull = interpolateIntegerY(getConvexHull(image));
+  const hullByY = new Map<number, number[]>();
+  for (const [x, y] of hull) {
+    if (!hullByY.has(y)) {
+      hullByY.set(y, []);
     }
+    hullByY.get(y)!.push(x);
   }
 
-  const rightSpacing = new Array<number>(canvasHeight).fill(Infinity);
-  for (let x = canvasWidth - 1; x >= 0; x--) {
-    for (let y = 0; y < canvasHeight; y++) {
-      if (rightSpacing[y] === Infinity && getPixel(image, x, y)[3] !== 0) {
-        rightSpacing[y] = (rightMargin - x) / fontSizePx;
-      }
-    }
-  }
+  const leftSpacing = Array.from({ length: canvasHeight }, (_, i) => {
+    const xs = hullByY.get(i);
+    return xs && xs.length > 0 ? Math.min(...xs) - leftMargin : Infinity;
+  });
 
-  const ret = { left: leftSpacing, right: rightSpacing };
+  const rightSpacing = Array.from({ length: canvasHeight }, (_, i) => {
+    const xs = hullByY.get(i);
+    return xs && xs.length > 0 ? rightMargin - Math.max(...xs) : Infinity;
+  });
+
+  const ret = [
+    leftSpacing.map((v) => v / fontSizePx),
+    rightSpacing.map((v) => v / fontSizePx),
+  ] as [number[], number[]];
   cache.set(cacheKey, ret);
   return ret;
 }
@@ -90,26 +103,30 @@ export function calculateKerning(
   graphemeRight: string,
   font: Readonly<Font>,
   canvasConstructor: () => HTMLCanvasElement,
+  cache: SpacingCache,
 ) {
-  const { right: spacingRight } = measureSpacing(
+  const [, spacingRight] = measureSpacing(
     graphemeLeft,
     font,
     canvasConstructor,
+    cache,
   );
-  const { left: spacingLeft } = measureSpacing(
+  const [spacingLeft] = measureSpacing(
     graphemeRight,
     font,
     canvasConstructor,
+    cache,
   );
   const gap = Math.min(...spacingRight.map((v, i) => v + spacingLeft[i]!));
   if (gap !== Infinity) {
-    return gap;
+    return gap > 0 ? gap : null;
   }
   const rightMin = Math.min(...spacingRight);
   const leftMin = Math.min(...spacingLeft);
   if (Number.isFinite(rightMin) && Number.isFinite(leftMin)) {
     // "`" + "."のように互いに重ならないグリフの場合
-    return rightMin + leftMin;
+    const ret = rightMin + leftMin;
+    return ret > 0 ? ret : null;
   } else {
     // FIXME: 少なくとも1つがスペース文字？
     return null;
