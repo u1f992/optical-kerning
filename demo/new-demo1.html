@@ -59,7 +59,10 @@
       }
     </style>
     <script type="module">
-      import { kerning } from "../dist/index.js";
+      import { kerning, createSpacingCache } from "../dist/index.js";
+      
+      const cache = createSpacingCache();
+
       function update() {
         document.querySelectorAll("div").forEach((div) => {
           div.textContent = document.querySelector(
@@ -71,6 +74,7 @@
         document.querySelectorAll(".kerned").forEach((elem) => {
           kerning(elem, {
             factor: parseFloat(factorValue),
+            cache
           });
         });
       }

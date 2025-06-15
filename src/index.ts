@@ -1,17 +1,32 @@
 import {
-  createAnalyzerContext,
-  prepareGap,
-  getGap,
-  type AnalyzerContext,
-} from "./analyzer.js";
-import type { Window, Node, Element } from "./dom.js";
-import { isElement, isText, isHTMLElement } from "./html.js";
+  type Window,
+  type Node,
+  type Element,
+  isElement,
+  isText,
+  isHTMLElement,
+} from "./dom.js";
+import {
+  createSpacingCache,
+  exportSpacingCache,
+  importSpacingCache,
+  calculateKerning,
+  type SpacingCache,
+} from "./kerning.js";
 import { pairwise } from "./util.js";
+
+export {
+  type SpacingCache,
+  createSpacingCache,
+  exportSpacingCache,
+  importSpacingCache,
+};
 
 export type KerningOptions = {
   factor: number;
   exclude: readonly (string | [number, number])[];
   locales?: Intl.LocalesArgument;
+  cache: SpacingCache;
 };
 
 type WindowFunctions = Pick<Window, "getComputedStyle"> &
@@ -80,52 +95,6 @@ function excluded(ch: string, exclude: readonly (string | [number, number])[]) {
   return false;
 }
 
-function calcKerning(
-  element: Element,
-  { getComputedStyle }: Pick<WindowFunctions, "getComputedStyle">,
-  analyzer: AnalyzerContext,
-  { factor, exclude, locales }: Readonly<KerningOptions>,
-) {
-  for (let node = element.firstChild; node !== null; node = node.nextSibling) {
-    if (
-      isHTMLElement(node) &&
-      node.style.letterSpacing === "" &&
-      !excluded_tags.includes(node.tagName.toLowerCase())
-    ) {
-      calcKerning(node, { getComputedStyle }, analyzer, {
-        factor,
-        exclude,
-        locales,
-      });
-    } else if (isText(node)) {
-      const text = node.nodeValue;
-      const parentNode = node.parentNode;
-      if (
-        text === null ||
-        text.match(/^[\s\t\r\n]*$/) ||
-        parentNode === null ||
-        !isElement(parentNode)
-      ) {
-        continue;
-      }
-
-      const computedStyle = getComputedStyle(parentNode);
-      for (const [g0, g1] of pairwise([
-        ...new Intl.Segmenter(locales, {
-          granularity: "grapheme",
-        }).segment(text),
-      ])) {
-        const seg0 = g0.segment ?? "";
-        const seg1 = g1.segment ?? "";
-        if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
-          continue;
-        }
-        prepareGap(analyzer, seg0, seg1, computedStyle, factor);
-      }
-    }
-  }
-}
-
 function applyKerning(
   element: Element,
   {
@@ -133,15 +102,13 @@ function applyKerning(
     createDocumentFragment,
     createTextNode,
     createElement,
-  }: Pick<
-    WindowFunctions,
-    | "getComputedStyle"
-    | "createDocumentFragment"
-    | "createTextNode"
-    | "createElement"
-  >,
-  analyzer: AnalyzerContext,
-  { exclude, locales }: Pick<Readonly<KerningOptions>, "exclude" | "locales">,
+  }: WindowFunctions,
+  {
+    factor,
+    exclude,
+    locales,
+    cache,
+  }: Pick<Readonly<KerningOptions>, "factor" | "exclude" | "locales" | "cache">,
 ) {
   for (let node = element.firstChild; node !== null; node = node.nextSibling) {
     if (
@@ -157,8 +124,7 @@ function applyKerning(
           createTextNode,
           createElement,
         },
-        analyzer,
-        { exclude, locales },
+        { factor, exclude, locales, cache },
       );
     } else if (isText(node)) {
       const text = node.nodeValue;
@@ -179,19 +145,27 @@ function applyKerning(
           granularity: "grapheme",
         }).segment(text),
       ];
-      for (const [g0, g1] of pairwise(graphemes)) {
-        const seg0 = g0.segment ?? "";
-        const seg1 = g1.segment ?? "";
-        if (excluded(seg0, exclude) || excluded(seg1, exclude)) {
-          const textNode = createTextNode(seg0);
+      for (const [{ segment: g0 }, { segment: g1 }] of pairwise(graphemes)) {
+        if (excluded(g0, exclude) || excluded(g1, exclude)) {
+          const textNode = createTextNode(g0);
           spans.appendChild(textNode);
           continue;
         }
-        const gap = getGap(analyzer, seg0, seg1, computedStyle);
+        const gap = calculateKerning(
+          g0,
+          g1,
+          computedStyle,
+          factor,
+          () => createElement("canvas"),
+          cache,
+        );
         const span = createElement("span");
         span.setAttribute("class", "optical-kerning-applied");
-        span.setAttribute("style", "letter-spacing: " + -gap + "em");
-        span.textContent = seg0;
+        span.setAttribute(
+          "style",
+          "letter-spacing: " + (gap !== null ? -gap + "em" : "normal"),
+        );
+        span.textContent = g0;
         spans.appendChild(span);
       }
       const lastGrapheme = graphemes.at(-1);
@@ -211,7 +185,12 @@ export function kerning(
   options: Partial<Readonly<KerningOptions>>,
 ) {
   const mergedOptions = {
-    ...{ factor: 0.5, exclude: [], locales: undefined },
+    ...{
+      factor: 0.5,
+      exclude: [],
+      locales: undefined,
+      cache: createSpacingCache(),
+    },
     ...options,
   } satisfies KerningOptions;
   const window = element.ownerDocument.defaultView;
@@ -226,12 +205,8 @@ export function kerning(
     ),
     createElement: window.document.createElement.bind(window.document),
   } satisfies WindowFunctions;
-  const analyzer = createAnalyzerContext(() =>
-    window.document.createElement("canvas"),
-  );
   removeKerning(element, windowFn);
   if (options.factor !== 0.0) {
-    calcKerning(element, windowFn, analyzer, mergedOptions);
-    applyKerning(element, windowFn, analyzer, mergedOptions);
+    applyKerning(element, windowFn, mergedOptions);
   }
 }

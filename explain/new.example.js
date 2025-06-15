@@ -7,7 +7,7 @@ import {
   createSpacingCache,
   exportSpacingCache,
   importSpacingCache,
-} from "../dist/new.js";
+} from "../dist/kerning.js";
 import { pairwise } from "../dist/util.js";
 
 import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
@@ -40,13 +40,14 @@ const html =
         g0,
         g1,
         font,
+        factor,
         // @ts-ignore
         () => createCanvas(0, 0),
         cache,
       );
       return (
         html +
-        `<span style="letter-spacing: ${kerning === null ? "normal" : "-" + kerning * factor + "em"}">${g0}</span>`
+        `<span style="letter-spacing: ${kerning === null ? "normal" : "-" + kerning + "em"}">${g0}</span>`
       );
     },
     `<html lang="ja">

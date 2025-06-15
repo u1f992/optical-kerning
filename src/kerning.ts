@@ -1,9 +1,9 @@
 import type { CSSStyleDeclaration, HTMLCanvasElement } from "./dom.js";
-import { safeStringify } from "./json.js";
+import { safeStringify } from "./util.js";
 import { getConvexHull, interpolateIntegerY } from "./pixel-geometry.js";
 
 const cacheBrand = Symbol();
-type SpacingCache = Map<string, [number[], number[]]> & {
+export type SpacingCache = Map<string, [number[], number[]]> & {
   [cacheBrand]: unknown;
 };
 export function createSpacingCache(): SpacingCache {
@@ -102,6 +102,7 @@ export function calculateKerning(
   graphemeLeft: string,
   graphemeRight: string,
   font: Readonly<Font>,
+  factor: number,
   canvasConstructor: () => HTMLCanvasElement,
   cache: SpacingCache,
 ) {
@@ -119,14 +120,14 @@ export function calculateKerning(
   );
   const gap = Math.min(...spacingRight.map((v, i) => v + spacingLeft[i]!));
   if (gap !== Infinity) {
-    return gap > 0 ? gap : null;
+    return gap > 0 ? gap * factor : null;
   }
   const rightMin = Math.min(...spacingRight);
   const leftMin = Math.min(...spacingLeft);
   if (Number.isFinite(rightMin) && Number.isFinite(leftMin)) {
     // "`" + "."のように互いに重ならないグリフの場合
     const ret = rightMin + leftMin;
-    return ret > 0 ? ret : null;
+    return ret > 0 ? ret * factor : null;
   } else {
     // FIXME: 少なくとも1つがスペース文字？
     return null;
