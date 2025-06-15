@@ -4,8 +4,14 @@ Apply kerning by glyphs (“optical kerning” in InDesign) to HTML.
 
 This project was originally forked from [data9824/optical-kerning](https://github.com/data9824/optical-kerning), but has been entirely rewritten. With the exception of the demo assets, all original code from the fork has been replaced.
 
+## License
+
+MIT License.
+
+Rewritten source codes copyright Koutaro Mukai, demo assets copyright Takuya Nishida.
+
 <details>
-<summary>The original README.md from the forked source (now entirely outdated)</summary>
+<summary>The original README.md from the forked source (now basically outdated)</summary>
 
 # optical-kerning.js
 

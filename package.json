@@ -1,5 +1,5 @@
 {
-  "name": "optical-kerning",
+  "name": "@u1f992/optical-kerning",
   "version": "0.1.0",
   "description": "Apply kerning by glyphs (“optical kerning” in InDesign) to HTML.",
   "main": "dist/index.js",
