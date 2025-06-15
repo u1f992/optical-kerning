@@ -1,2 +1,0 @@
-- NotoSerifCJKjp-VF.ttf (OFL-1.1) from https://github.com/notofonts/noto-cjk/blob/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Serif/Variable/TTF/NotoSerifCJKjp-VF.ttf
-- ZenKakuGothicAntique-Regular.ttf (OFL-1.1) from https://github.com/googlefonts/zen-kakugothic/blob/2705757e17e42954f3acbdf921ac0ae24d1270cd/fonts/ttf/ZenKakuGothicAntique-Regular.ttf

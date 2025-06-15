@@ -1,33 +1,29 @@
 {
   "name": "optical-kerning",
-  "version": "1.0.1",
-  "description": "Optical Kerning jQuery Plugin",
+  "version": "0.1.0",
+  "description": "Apply kerning by glyphs (“optical kerning” in InDesign) to HTML.",
   "main": "dist/index.js",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/u1f992/optical-kerning.git"
   },
-  "keywords": [
-    "jquery-plugin"
-  ],
+  "keywords": [],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && shx cp -r dist demo/",
     "test": "npm run build && node --test",
     "serve": "npm run build && http-server ."
   },
-  "author": "Takuya Nishida",
+  "author": "Koutaro Mukai",
   "license": "MIT",
-  "dependencies": {
-    "canvas": "npm:@napi-rs/canvas@^0.1.71",
-    "jquery": ">=1.0.0"
-  },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/node": "^24.0.1",
+    "canvas": "npm:@napi-rs/canvas@^0.1.71",
     "http-server": "^14.1.1",
     "jsdom": "^26.1.0",
     "prettier": "^3.5.3",
+    "shx": "^0.4.0",
     "typescript": "^5.8.3"
   },
   "overrides": {

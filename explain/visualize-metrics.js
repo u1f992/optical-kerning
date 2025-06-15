@@ -2,7 +2,7 @@
 
 import fs from "node:fs";
 
-import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
+import { createCanvas, GlobalFonts } from "canvas";
 
 GlobalFonts.registerFromPath("NotoSerifCJKjp-VF.ttf", "Noto Serif JP");
 GlobalFonts.registerFromPath(
@@ -11,7 +11,7 @@ GlobalFonts.registerFromPath(
 );
 
 /**
- * @param {import("@napi-rs/canvas").Canvas} canvas
+ * @param {import("canvas").Canvas} canvas
  * @param {string} strokeStyle
  * @param {number} fromX
  * @param {number} fromY
@@ -32,7 +32,7 @@ function drawLine(canvas, strokeStyle, fromX, fromY, toX, toY) {
   context.strokeStyle = oldStrokeStyle;
 }
 /**
- * @param {import("@napi-rs/canvas").Canvas} canvas
+ * @param {import("canvas").Canvas} canvas
  * @param {string} strokeStyle
  * @param {number} y
  */
@@ -40,7 +40,7 @@ function drawHorizontalLine(canvas, strokeStyle, y) {
   drawLine(canvas, strokeStyle, 0, y, canvas.width, y);
 }
 /**
- * @param {import("@napi-rs/canvas").Canvas} canvas
+ * @param {import("canvas").Canvas} canvas
  * @param {string} strokeStyle
  * @param {number} x
  */

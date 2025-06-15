@@ -48,7 +48,7 @@ function measureSpacing(
     return cache.get(cacheKey)!;
   }
 
-  const fontSizePx = 256;
+  const fontSizePx = 128;
 
   const canvasWidth = fontSizePx * 2;
   const canvasHeight = fontSizePx * 2;

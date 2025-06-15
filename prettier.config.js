@@ -1,3 +1,3 @@
-const prettierConfig = {};
+const prettierConfig = { htmlWhitespaceSensitivity: "strict" };
 
 export default prettierConfig;

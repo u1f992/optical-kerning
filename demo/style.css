@@ -1,0 +1,91 @@
+#demo1 {
+  margin: 0;
+  padding: 0;
+}
+#demo1 main {
+  line-height: 1.5em;
+}
+#demo1 table {
+  table-layout: fixed;
+  width: 100%;
+}
+#demo1 th {
+  font-weight: normal;
+}
+#demo1 td {
+  vertical-align: top;
+}
+#demo1 .sample1 {
+  font-size: 1.5em;
+  line-height: 1.5em;
+}
+/* #demo1 .sample2 {
+} */
+#demo1 .plain {
+  font-feature-settings:
+    "pwid" 1,
+    "kern" 1;
+}
+
+#demo1 .row-header {
+  background-color: #888888;
+  color: #ffffff;
+  text-align: center;
+}
+
+#demo2 body {
+  font-feature-settings:
+    "pwid" 1,
+    "kern" 1;
+}
+#demo2 h1 {
+  font-size: 16px;
+  color: #888888;
+}
+#demo2 div {
+  font-size: 32px;
+}
+#demo2 .nopwid {
+  font-feature-settings:
+    "pwid" 0,
+    "kern" 0;
+}
+
+#demo3 h1 {
+  font-weight: inherit;
+  font-size: 1.5em;
+  line-height: 1.5em;
+}
+#demo3 main {
+  font-family: "M PLUS 1p", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5em;
+  white-space: pre-wrap;
+}
+
+.mplus1p {
+  font-family: "M PLUS 1p";
+  font-weight: 400;
+  font-style: normal;
+}
+.notosans {
+  font-family: "Noto Sans Japanese";
+  font-weight: 400;
+  font-style: normal;
+}
+.sawarabimincho {
+  font-family: "Sawarabi Mincho";
+  font-weight: 400;
+  font-style: normal;
+}
+.meiryo {
+  font-family: Meiryo;
+  font-weight: 400;
+  font-style: normal;
+}
+.yugothic {
+  font-family: "Yu Gothic", YuGothic;
+  font-weight: 400;
+  font-style: normal;
+}
