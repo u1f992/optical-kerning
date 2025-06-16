@@ -51,6 +51,7 @@ function demo2Update() {
   document.querySelectorAll("#demo2 .kerned").forEach((elem) => {
     applyOpticalKerning(elem, {
       factor: parseFloat(factorValue),
+      exclude: ["palt"],
       cache,
     });
   });
